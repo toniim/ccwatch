@@ -56,7 +56,10 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 .lane .pct span { width: 4ch; text-align: right; }
 .lane .status { grid-column: 2 / 4; color: var(--muted); }
 .lane .now { grid-column: 2 / 4; }
-.nowline { color: var(--fg); overflow-wrap: anywhere; }
+.nowline { color: var(--fg); display: flex; min-width: 0; white-space: nowrap; }
+.nowline[hidden] { display: none; }
+.nowline .nt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nowline .el, .nowline .mk { flex: none; }
 .nowline.idle { color: var(--muted); }
 .nowline .el { color: var(--orange); }
 #now { margin-top: 2px; }
@@ -84,8 +87,19 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 #log .row.tools { cursor: pointer; }
 #log .row.tools > .txt::before { content: "▸ "; } #log .row.tools.open > .txt::before { content: "▾ "; }
 #log .row .sub { margin-top: 2px; }
-#log .row .sub div { display: grid; grid-template-columns: 9ch 1fr; gap: 12px; }
+#log .row .sub .titem { display: grid; grid-template-columns: 9ch minmax(0, 1fr); gap: 12px; }
 #log .row .sub .fail { color: var(--red); }
+#log .row.tool .tn, #log .titem .tn { color: var(--fg); }
+#log .row.tool .tm, #log .titem .tm { color: var(--muted); }
+#log .row.tool.fail .tm, #log .titem.fail .tm { color: var(--red); }
+#log .row.tool.more, #log .titem.more { cursor: pointer; }
+#log .row.tool.more.open, #log .titem.more.open { cursor: default; }
+#log .row.tool:not(.open) .txt, #log .titem:not(.open) .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#log .row.tool .ts, #log .titem .ts { color: var(--muted); }
+#log .row.tool.run .ts { color: var(--fg); }
+#log .detail { margin: 3px 0 4px; padding: 4px 8px; border-left: 2px solid var(--line); cursor: text; }
+#log .detail .k { color: var(--muted); font-size: .9em; }
+#log .detail .v { margin: 0 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; font: inherit; color: var(--fg); }
 #tools-toggle { font: inherit; font-size: .8em; background: none; border: 1px solid var(--line); color: var(--muted); padding: 0 8px; border-radius: 4px; cursor: pointer; margin-left: 6px; }
 #tools-toggle.on { color: var(--fg); border-color: var(--purple); }
 #log .row.new { animation: fade .9s ease-out; }

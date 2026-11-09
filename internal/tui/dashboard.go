@@ -20,31 +20,40 @@ type Options struct {
 	Now    time.Time      // clock for elapsed times; zero = time.Now()
 }
 
-// nowLine renders "now: Edit app.js · 4s" (running) or a muted "last: ..." (finished).
-func nowLine(a *view.Activity, now time.Time) string {
+// nowLine renders "now: Edit app.js · 4s" (running) or a muted "last: ..." (finished) as
+// one line of at most w cells (0 = no limit): a long tool text is cut in the middle of
+// the line so the elapsed time or the outcome mark stays visible.
+func nowLine(a *view.Activity, now time.Time, w int) string {
 	if a == nil {
 		return ""
 	}
+	prefix, text, suffix := "now: ", a.Text, ""
 	if !a.Running {
-		mark := " ✓"
+		prefix = "last: "
+		suffix = " ✓"
 		if a.Failed {
-			mark = " ✗"
+			suffix = " ✗"
 		}
-		d := ""
 		if a.DurMs > 0 {
-			d = " " + state.FmtDur(a.DurMs)
+			suffix += " " + state.FmtDur(a.DurMs)
 		}
-		return grey.Render("last: " + a.Text + mark + d)
-	}
-	line := "now: " + a.Text
-	if a.More > 0 {
-		line += fmt.Sprintf(" (+%d more)", a.More)
-	}
-	if t, err := time.Parse(time.RFC3339Nano, a.Start); err == nil {
-		if now.IsZero() {
-			now = time.Now()
+	} else {
+		if a.More > 0 {
+			suffix = fmt.Sprintf(" (+%d more)", a.More)
 		}
-		line += " · " + elapsed(now.Sub(t))
+		if t, err := time.Parse(time.RFC3339Nano, a.Start); err == nil {
+			if now.IsZero() {
+				now = time.Now()
+			}
+			suffix += " · " + elapsed(now.Sub(t))
+		}
+	}
+	if room := w - cw(prefix) - cw(suffix); w > 0 && cw(text) > room && room > 0 {
+		text = ansi.Truncate(text, room, "…")
+	}
+	line := prefix + text + suffix
+	if !a.Running {
+		return grey.Render(line)
 	}
 	return line
 }
@@ -255,7 +264,7 @@ func mainPanel(d view.Dashboard, o Options, inner int) []string {
 		st += " [   ]"
 	}
 	b = append(b, center(st, inner))
-	if nl := nowLine(d.Now, o.Now); nl != "" {
+	if nl := nowLine(d.Now, o.Now, inner); nl != "" {
 		b = append(b, center(fit(nl, inner), inner))
 	}
 	if d.WorkerLine != "" {
@@ -321,7 +330,7 @@ func laneBody(l view.Lane, w int, frame int, narrow bool, now time.Time) []strin
 		bar(float64(l.Pct)/100, barW) + fmt.Sprintf(" %3d%%", l.Pct)
 	l2 := fit(blue.Render(l.Model), nameW) + fit(grey.Render("○ ")+l.Status, slotsW)
 	if l.Now != nil {
-		return []string{l1, l2, fit(nowLine(l.Now, now), inner)}
+		return []string{l1, l2, fit(nowLine(l.Now, now, inner), inner)}
 	}
 	return []string{l1, l2}
 }

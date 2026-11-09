@@ -2,6 +2,7 @@
 package hook
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -19,6 +20,12 @@ import (
 const (
 	maxStdin = 1 << 20
 	maxText  = 300
+
+	maxField     = 16 << 10 // a stored string field of tool_input
+	maxFieldTiny = 1 << 10  // the cap when the event line would still be too large
+	maxLine      = maxStdin // an event line is never written larger than the stdin cap
+	previewEnd   = 1 << 10  // Bash output: this many bytes from each end are kept
+	preTailBytes = 256 << 10
 )
 
 type rawPayload struct {
@@ -34,7 +41,7 @@ type rawPayload struct {
 	ToolUseID        string                 `json:"tool_use_id"`
 	DurationMs       int64                  `json:"duration_ms"`
 	PermissionMode   string                 `json:"permission_mode"`
-	ToolInput        *rawInput              `json:"tool_input"`
+	ToolInput        json.RawMessage        `json:"tool_input"`
 	ToolResponse     json.RawMessage        `json:"tool_response"`
 	Error            string                 `json:"error"`
 	IsInterrupt      bool                   `json:"is_interrupt"`
@@ -90,6 +97,8 @@ type rawResponse struct {
 	TotalDurationMs   int64  `json:"totalDurationMs"`
 	TotalToolUseCount int64  `json:"totalToolUseCount"`
 	Stdout            string `json:"stdout"`
+	Stderr            string `json:"stderr"`
+	Interrupted       bool   `json:"interrupted"`
 	Content           []struct {
 		Text string `json:"text"`
 	} `json:"content"`
@@ -183,18 +192,6 @@ func setPrompt(e *state.Event, prompt string) {
 
 func isAgentTool(name string) bool { return name == "Agent" || name == "Task" }
 
-// relPath shortens p to be relative to cwd when it lies under it.
-func relPath(p, cwd string) string {
-	if p == "" || cwd == "" || !filepath.IsAbs(p) || !filepath.IsAbs(cwd) {
-		return p
-	}
-	r, err := filepath.Rel(cwd, p)
-	if err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
-		return p
-	}
-	return r
-}
-
 // Target is the allowlisted summary of what a tool call works on; nothing else of
 // the input is ever kept. Tools outside the allowlist have no target.
 func Target(tool string, in *rawInput, cwd string) string {
@@ -208,13 +205,13 @@ func Target(tool string, in *rawInput, cwd string) string {
 	case tool == "Bash":
 		return Truncate(strings.Join(strings.Fields(Truncate(string(in.Command), 1000)), " "), maxText)
 	case tool == "Read" || tool == "Edit" || tool == "Write" || tool == "MultiEdit":
-		return Truncate(relPath(string(in.FilePath), cwd), maxText)
+		return Truncate(state.RelPath(string(in.FilePath), cwd), maxText)
 	case tool == "NotebookEdit":
-		return Truncate(relPath(string(in.NotebookPath), cwd), maxText)
+		return Truncate(state.RelPath(string(in.NotebookPath), cwd), maxText)
 	case tool == "Grep" || tool == "Glob":
 		t := Truncate(string(in.Pattern), 120)
 		if in.Path != "" {
-			t += " in " + relPath(string(in.Path), cwd)
+			t += " in " + state.RelPath(string(in.Path), cwd)
 		}
 		return Truncate(t, maxText)
 	case tool == "WebFetch":
@@ -263,22 +260,22 @@ func Convert(data []byte, now time.Time) (state.Event, bool) {
 		LastAssistantMsg: Truncate(p.LastAssistantMsg, maxText), LastAssistantChars: utf8.RuneCountInString(p.LastAssistantMsg), BackgroundTasks: p.BackgroundTasks,
 	}
 	setPrompt(&e, p.Prompt)
+	var in *rawInput
+	if len(p.ToolInput) > 0 && p.ToolInput[0] == '{' {
+		in = new(rawInput)
+		if json.Unmarshal(p.ToolInput, in) != nil {
+			in = nil
+		}
+	}
 	if isTool {
-		e.Target = Target(p.ToolName, p.ToolInput, p.Cwd)
+		e.Target = Target(p.ToolName, in, p.Cwd)
+		e.ToolInput = storedInput(p.ToolInput, maxField)
 		if !full {
 			e.Error = ""
 		}
 		if p.Name == "PreToolUse" || !full {
 			e.Cwd = "" // the session's cwd comes from its other events; keep the per-call line small
 		}
-	}
-	if p.ToolInput != nil && full && p.Name != "PreToolUse" {
-		in := state.ToolInput{
-			Command:     Truncate(string(p.ToolInput.Command), 1000), // test detection needs the whole command prefix, not the text cap
-			Description: string(p.ToolInput.Description), SubagentType: string(p.ToolInput.SubagentType),
-			RunInBackground: bool(p.ToolInput.RunInBackground), Prompt: Truncate(string(p.ToolInput.Prompt), maxText),
-		}
-		e.ToolInput = &in
 	}
 	if len(p.ToolResponse) > 0 && p.ToolResponse[0] == '{' && (full || !isTool) && p.Name != "PreToolUse" {
 		var r rawResponse
@@ -293,8 +290,11 @@ func Convert(data []byte, now time.Time) (state.Event, bool) {
 				}
 				text = strings.Join(parts, "\n")
 			}
-			if p.ToolName == "Bash" && p.ToolInput != nil && strings.Contains(string(p.ToolInput.Command), "orca orchestration") {
+			if p.ToolName == "Bash" && in != nil && strings.Contains(string(in.Command), "orca orchestration") {
 				e.OrcaRuns = runIDs(r.Stdout) // from the full stdout, before the text is cut
+			}
+			if p.ToolName == "Bash" {
+				e.ToolOutput = &state.ToolOutput{Stdout: preview(r.Stdout), Stderr: preview(r.Stderr), Interrupted: r.Interrupted}
 			}
 			e.ToolResponse = &state.ToolResponse{
 				Status: r.Status, IsAsync: r.IsAsync, AgentID: r.AgentID, AgentType: r.AgentType,
@@ -303,7 +303,151 @@ func Convert(data []byte, now time.Time) (state.Event, bool) {
 			}
 		}
 	}
+	if isTool && p.Name != "PreToolUse" && len(p.ToolResponse) > 0 {
+		if e.ToolOutput == nil {
+			e.ToolOutput = &state.ToolOutput{}
+		}
+		e.ToolOutput.Bytes = len(p.ToolResponse) // the size only: no other response body is stored
+	}
 	return e, true
+}
+
+// storedInput decodes a tool_input object and caps every string in it at limit
+// bytes; nil when the input is absent or not an object.
+func storedInput(raw json.RawMessage, limit int) state.ToolInput {
+	if len(raw) == 0 || raw[0] != '{' {
+		return nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber() // keep numbers exactly as the tool got them
+	var m map[string]any
+	if dec.Decode(&m) != nil || len(m) == 0 {
+		return nil
+	}
+	capMap(m, limit)
+	return state.ToolInput(m)
+}
+
+// cutRunes returns s cut to at most limit bytes on a rune boundary.
+func cutRunes(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	for limit > 0 && !utf8.RuneStart(s[limit]) {
+		limit--
+	}
+	return s[:limit]
+}
+
+// capMap truncates the string values of m (and of nested objects and arrays) to
+// limit bytes. For a cut string field "<field>_chars" keeps its full rune length;
+// an existing "_chars" is kept, so capping again never loses the original length.
+func capMap(m map[string]any, limit int) {
+	add := map[string]int{}
+	for k, v := range m {
+		switch x := v.(type) {
+		case string:
+			if len(x) > limit {
+				if _, had := m[k+"_chars"]; !had {
+					add[k+"_chars"] = utf8.RuneCountInString(x)
+				}
+				m[k] = cutRunes(x, limit)
+			}
+		case map[string]any:
+			capMap(x, limit)
+		case []any:
+			capList(x, limit)
+		}
+	}
+	for k, n := range add {
+		m[k] = n
+	}
+}
+
+func capList(l []any, limit int) {
+	for i, v := range l {
+		switch x := v.(type) {
+		case string:
+			l[i] = cutRunes(x, limit)
+		case map[string]any:
+			capMap(x, limit)
+		case []any:
+			capList(x, limit)
+		}
+	}
+}
+
+// preview keeps the first and last previewEnd bytes of a Bash output with its
+// full rune length; nil for empty output.
+func preview(s string) *state.Preview {
+	if s == "" {
+		return nil
+	}
+	p := &state.Preview{Chars: utf8.RuneCountInString(s)}
+	if len(s) <= 2*previewEnd {
+		p.Head = s
+		return p
+	}
+	p.Head = cutRunes(s, previewEnd)
+	t := len(s) - previewEnd
+	for t < len(s) && !utf8.RuneStart(s[t]) {
+		t++
+	}
+	p.Tail = s[t:]
+	return p
+}
+
+// hasPre reports whether the recent tail of the session file holds the
+// PreToolUse of tool call id, so its PostToolUse need not repeat the input.
+func hasPre(f *os.File, id string) bool {
+	if id == "" {
+		return false
+	}
+	st, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	n := st.Size()
+	if n > preTailBytes {
+		n = preTailBytes
+	}
+	buf := make([]byte, n)
+	if _, err := f.ReadAt(buf, st.Size()-n); err != nil && err != io.EOF {
+		return false
+	}
+	idKey := []byte(`"tool_use_id":"` + id + `"`)
+	for _, line := range bytes.Split(buf, []byte{'\n'}) {
+		if bytes.Contains(line, idKey) && bytes.Contains(line, []byte(`"hook_event_name":"PreToolUse"`)) {
+			return true
+		}
+	}
+	return false
+}
+
+// marshalLine encodes e as one line without HTML escaping (which can grow the
+// line six-fold). A line over the stdin cap is shrunk: strings cut to 1 KiB, then
+// the input dropped.
+func marshalLine(e state.Event) ([]byte, error) {
+	enc := func() ([]byte, error) {
+		var b bytes.Buffer
+		je := json.NewEncoder(&b)
+		je.SetEscapeHTML(false)
+		err := je.Encode(e) // Encode ends the line with \n
+		return b.Bytes(), err
+	}
+	line, err := enc()
+	if err != nil || len(line) <= maxLine {
+		return line, err
+	}
+	if e.ToolInput != nil {
+		capMap(e.ToolInput, maxFieldTiny)
+		if line, err = enc(); err != nil || len(line) <= maxLine {
+			return line, err
+		}
+		e.ToolInput = nil
+		return enc()
+	}
+	return line, nil
 }
 
 // StdinTimeout bounds how long the hook waits for Claude Code to finish writing.
@@ -341,17 +485,20 @@ func Run(in io.Reader, dir string, now time.Time) error {
 	e.OrcaTerminal = OrcaTerminal()
 	home, _ := os.UserHomeDir()
 	e.Profile, e.ConfigDir = Profile(os.Getenv("CLAUDE_CONFIG_DIR"), home)
-	line, err := json.Marshal(e)
-	if err != nil {
-		return err
-	}
-	line = append(line, '\n')
 	evDir := filepath.Join(dir, "events")
 	if err := os.MkdirAll(evDir, 0o755); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(filepath.Join(evDir, e.SessionID+".jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(filepath.Join(evDir, e.SessionID+".jsonl"), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
+		return err
+	}
+	if e.ToolInput != nil && e.Name != "PreToolUse" && hasPre(f, e.ToolUseID) {
+		e.ToolInput = nil // the Pre event already carries the input
+	}
+	line, err := marshalLine(e)
+	if err != nil {
+		f.Close()
 		return err
 	}
 	_, err = f.Write(line) // single O_APPEND write: atomic for lines this size

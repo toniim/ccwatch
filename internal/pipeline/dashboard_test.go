@@ -245,7 +245,7 @@ func TestLaneSlotStatesAndWorkingState(t *testing.T) {
 	}
 	failed := ev(5, "PostToolUseFailure")
 	failed.ToolName, failed.ToolUseID, failed.Error = "Agent", "tu1", "Agent failed"
-	failed.ToolInput = &state.ToolInput{SubagentType: "Explore", Description: "broken"}
+	failed.ToolInput = state.ToolInput{"subagent_type": "Explore", "description": "broken"}
 	prompt := ev(0, "UserPromptSubmit")
 	prompt.Prompt = "# do it\nplease delegate"
 

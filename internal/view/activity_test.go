@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,5 +104,26 @@ func TestLogKeepsRowsWithoutToolsAndGroupsTheRest(t *testing.T) {
 	}
 	if models != LogRows || groups == 0 || len(d.Log) > maxLogRows {
 		t.Errorf("rows %d: models %d groups %d", len(d.Log), models, groups)
+	}
+}
+
+func TestNowAndLastAreOneLineWithTheFullCommandAsTitle(t *testing.T) {
+	cmd := "go test ./...\n  && echo done\n  && echo again"
+	pre := aev(1, "PreToolUse", "Bash", "a", "")
+	pre.ToolInput = state.ToolInput{"command": cmd}
+	d := Build(state.Build([]state.Event{aev(0, "UserPromptSubmit", "", "", ""), pre}, nil), Ext{})
+	if d.Now == nil || strings.Contains(d.Now.Text, "\n") || d.Now.Text != "Bash go test ./... …" || d.Now.Title != "Bash "+cmd {
+		t.Fatalf("now = %+v", d.Now)
+	}
+	post := aev(3, "PostToolUse", "Bash", "a", "")
+	d = Build(state.Build([]state.Event{aev(0, "UserPromptSubmit", "", "", ""), pre, post, aev(4, "Stop", "", "", "")}, nil), Ext{})
+	if d.Now == nil || d.Now.Running || strings.Contains(d.Now.Text, "\n") || d.Now.Text != "Bash go test ./... …" || d.Now.Title != "Bash "+cmd {
+		t.Errorf("last = %+v", d.Now)
+	}
+	// a short call needs no title
+	short := aev(1, "PreToolUse", "Read", "b", "a.go")
+	d = Build(state.Build([]state.Event{aev(0, "UserPromptSubmit", "", "", ""), short}, nil), Ext{})
+	if d.Now == nil || d.Now.Title != "" {
+		t.Errorf("short now = %+v", d.Now)
 	}
 }

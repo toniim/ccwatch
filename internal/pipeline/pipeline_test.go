@@ -246,8 +246,8 @@ func TestTestDetection(t *testing.T) {
 		}
 	}
 	evs := []state.Event{
-		{SessionID: "s", Name: "PostToolUse", ToolName: "Bash", ToolInput: &state.ToolInput{Command: "go test ./..."}},
-		{SessionID: "s", Name: "PostToolUseFailure", ToolName: "Bash", ToolInput: &state.ToolInput{Command: "pytest"}},
+		{SessionID: "s", Name: "PostToolUse", ToolName: "Bash", ToolInput: state.ToolInput{"command": "go test ./..."}},
+		{SessionID: "s", Name: "PostToolUseFailure", ToolName: "Bash", ToolInput: state.ToolInput{"command": "pytest"}},
 	}
 	s := state.Build(evs, nil)
 	if s.TestsPass != 1 || s.TestsFail != 1 || s.ToolFailures != 1 {

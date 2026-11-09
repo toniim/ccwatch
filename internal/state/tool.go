@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,7 +18,34 @@ type Tool struct {
 	DurMs  int64 // 0 = unknown
 	Done   bool
 	Failed bool
+
+	Input   ToolInput // stored input while the call is open, nil once finished
+	Summary string    // one-line parameters, see ToolSummary
+	Full    string    // hover text: the whole Bash command, else Summary
+	Key     string    // handle of /api/tool, see ToolKey
 }
+
+// ToolKey is the row key of the tool call whose first stored event is events[i].
+func ToolKey(i int) string { return "t" + strconv.Itoa(i) }
+
+// describe fills Summary and Full from the input, the target and the session cwd.
+func (t *Tool) describe(cwd string) {
+	t.Summary = ToolSummary(t.Name, t.Input, t.Target, cwd)
+	t.Full = ToolFull(t.Name, t.Input, t.Target, cwd)
+}
+
+// DisplayName is the tool name shown in a row: an MCP tool reads as "mcp".
+func (t *Tool) DisplayName() string { return displayName(t.Name) }
+
+func displayName(name string) string {
+	if strings.HasPrefix(name, "mcp__") {
+		return "mcp"
+	}
+	return name
+}
+
+// Label is "Read internal/x.go": the name and the one-line parameters.
+func (t *Tool) Label() string { return ToolLabel(t.Name, t.Summary) }
 
 // RecentTools is how many completed tool calls Session.Recent keeps.
 const RecentTools = 20
@@ -28,9 +56,7 @@ const maxGroupItems = 30
 // ToolLabel renders a tool call as "Read internal/x.go". An MCP tool is shown as
 // "mcp server/tool" (its target already is that pair).
 func ToolLabel(name, target string) string {
-	if strings.HasPrefix(name, "mcp__") {
-		name = "mcp"
-	}
+	name = displayName(name)
 	if target == "" {
 		return name
 	}
@@ -52,7 +78,7 @@ func FmtDur(ms int64) string {
 
 // toolText is the log text of a call: the label, plus ✓/✗ and the duration once finished.
 func toolText(t *Tool) string {
-	s := ToolLabel(t.Name, t.Target)
+	s := t.Label()
 	if !t.Done {
 		return s
 	}
@@ -78,7 +104,7 @@ func toolTag(t *Tool) string {
 
 // ToolEntry builds the log row of a tool call.
 func toolEntry(t *Tool) LogEntry {
-	return LogEntry{TS: t.Start, Kind: "tool", Actor: t.Actor, Text: toolText(t), Tag: toolTag(t), DurMs: t.DurMs}
+	return LogEntry{TS: t.Start, Kind: "tool", Actor: t.Actor, Text: toolText(t), Tag: toolTag(t), DurMs: t.DurMs, Key: t.Key, Tool: t.DisplayName(), Summary: t.Summary}
 }
 
 // GroupTools collapses runs of 2+ consecutive tool rows of the same actor into

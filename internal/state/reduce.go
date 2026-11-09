@@ -36,12 +36,14 @@ type LogEntry struct {
 	Who       string     `json:"who"`
 	Text      string     `json:"text"`
 	Tag       string     `json:"tag,omitempty"`
-	Key       string     `json:"key,omitempty"`        // prompt rows: p<event index>, the handle of /api/prompt
+	Key       string     `json:"key,omitempty"`        // prompt rows: p<event index> (/api/prompt); tool rows: t<event index> (/api/tool)
 	FullChars int        `json:"full_chars,omitempty"` // prompt rows: rune length of the display text when Text is only a preview
 	Actor     string     `json:"actor,omitempty"`      // tool rows: agent_id of the subagent, "" = main session
 	DurMs     int64      `json:"dur_ms,omitempty"`     // tool rows: duration once finished
 	Count     int        `json:"count,omitempty"`      // tools rows: number of calls grouped
 	Items     []LogEntry `json:"items,omitempty"`      // tools rows: the grouped tool rows (the last ones)
+	Tool      string     `json:"tool,omitempty"`       // tool rows: the tool name shown (mcp for any MCP tool)
+	Summary   string     `json:"summary,omitempty"`    // tool rows: one-line parameters
 }
 
 // Session is the reduced view of one Claude Code session.
@@ -251,7 +253,7 @@ func Build(events []Event, otel []Record) Session {
 		} else if !sawStart && s.StartTS.IsZero() {
 			s.StartTS = ts
 		}
-		if e.ToolName == "Bash" && e.ToolInput != nil && strings.Contains(e.ToolInput.Command, "orca orchestration") {
+		if e.ToolName == "Bash" && e.ToolInput != nil && strings.Contains(e.ToolInput.Str("command"), "orca orchestration") {
 			ids := e.OrcaRuns
 			if e.ToolResponse != nil {
 				ids = append(ids, runIDRe.FindAllString(e.ToolResponse.Text, -1)...)
@@ -268,7 +270,8 @@ func Build(events []Event, otel []Record) Session {
 			closeOpen(func(*Tool) bool { return true })
 		case "PreToolUse":
 			if e.ToolUseID != "" && e.ToolName != "" && open[e.ToolUseID] == nil && !finished[e.ToolUseID] {
-				t := &Tool{ID: e.ToolUseID, Actor: e.AgentID, Name: e.ToolName, Target: e.Target, Start: ts}
+				t := &Tool{ID: e.ToolUseID, Actor: e.AgentID, Name: e.ToolName, Target: e.Target, Start: ts, Input: e.ToolInput, Key: ToolKey(ei)}
+				t.describe(s.Cwd)
 				open[t.ID], openRow[t.ID] = t, len(s.Log)
 				s.Log = append(s.Log, toolEntry(t))
 			}
@@ -305,19 +308,28 @@ func Build(events []Event, otel []Record) Session {
 				a.ReturnedChars = int64(utf8.RuneCountInString(e.LastAssistantMsg))
 			}
 		case "PostToolUse", "PostToolUseFailure":
+			pin := e.ToolInput // the Post carries no input when its Pre did
 			if e.ToolName != "" && !(e.ToolUseID != "" && finished[e.ToolUseID]) {
 				if e.ToolUseID != "" {
 					finished[e.ToolUseID] = true
 				}
 				t := open[e.ToolUseID]
 				row, paired := openRow[e.ToolUseID]
+				if t != nil && len(pin) == 0 {
+					pin = t.Input
+				}
 				if t == nil {
-					t = &Tool{ID: e.ToolUseID, Actor: e.AgentID, Name: e.ToolName, Start: ts}
+					t = &Tool{ID: e.ToolUseID, Actor: e.AgentID, Name: e.ToolName, Start: ts, Key: ToolKey(ei)}
 					if e.DurationMs > 0 {
 						t.Start = ts.Add(-time.Duration(e.DurationMs) * time.Millisecond)
 					}
 				}
 				t.Target = pick(e.Target, t.Target)
+				if len(e.ToolInput) > 0 {
+					t.Input = e.ToolInput
+				}
+				t.describe(s.Cwd)
+				t.Input = nil // the stored event keeps it; /api/tool reads it from there
 				t.Done, t.Failed, t.DurMs = true, e.Name == "PostToolUseFailure", e.DurationMs
 				if t.DurMs == 0 && paired && !ts.IsZero() && ts.After(t.Start) {
 					t.DurMs = ts.Sub(t.Start).Milliseconds()
@@ -339,8 +351,8 @@ func Build(events []Event, otel []Record) Session {
 			}
 			if e.Name == "PostToolUseFailure" && e.ToolName == "Agent" {
 				a := &Subagent{ID: "failed-" + e.ToolUseID, Failed: true, PromptID: e.PromptID, Started: ts}
-				if e.ToolInput != nil {
-					a.Type, a.Description = e.ToolInput.SubagentType, e.ToolInput.Description
+				if len(pin) > 0 {
+					a.Type, a.Description = pin.Str("subagent_type"), pin.Str("description")
 				}
 				s.Subagents = append(s.Subagents, a)
 				s.Log = append(s.Log, LogEntry{TS: ts, Kind: "agent", Who: a.Type, Text: FirstLine(e.Error), Tag: "failed"})
@@ -349,10 +361,10 @@ func Build(events []Event, otel []Record) Session {
 				r := e.ToolResponse
 				a := get(r.AgentID)
 				a.PromptID = pick(a.PromptID, e.PromptID)
-				if e.ToolInput != nil {
-					a.Description = pick(a.Description, e.ToolInput.Description)
-					a.Background = e.ToolInput.RunInBackground
-					a.Type = pick(a.Type, e.ToolInput.SubagentType)
+				if len(pin) > 0 {
+					a.Description = pick(a.Description, pin.Str("description"))
+					a.Background = pin.Bool("run_in_background")
+					a.Type = pick(a.Type, pin.Str("subagent_type"))
 				}
 				a.Type = pick(a.Type, r.AgentType)
 				a.Model = pick(a.Model, r.ResolvedModel)
@@ -362,8 +374,8 @@ func Build(events []Event, otel []Record) Session {
 					a.DurationMs = r.TotalDurationMs
 				}
 			}
-			if e.ToolName == "Bash" && e.ToolInput != nil {
-				if shown, ok := TestCommand(e.ToolInput.Command); ok {
+			if cmd := pin.Str("command"); e.ToolName == "Bash" && cmd != "" {
+				if shown, ok := TestCommand(cmd); ok {
 					tag := "pass"
 					if e.Name == "PostToolUse" {
 						s.TestsPass++

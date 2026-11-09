@@ -27,13 +27,33 @@ var safeID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 // SafeID reports whether id may be used as a file name component.
 func SafeID(id string) bool { return safeID.MatchString(id) && id != "." && id != ".." }
 
-// ToolInput is the kept subset of a hook's tool_input.
-type ToolInput struct {
-	Command         string `json:"command,omitempty"`
-	Description     string `json:"description,omitempty"`
-	SubagentType    string `json:"subagent_type,omitempty"`
-	RunInBackground bool   `json:"run_in_background,omitempty"`
-	Prompt          string `json:"prompt,omitempty"` // UserPromptSubmit text, truncated
+// ToolInput is the stored tool_input of a tool call: the JSON object as the tool
+// received it, each string field capped by the hook (with "<field>_chars" holding
+// the full length when cut). Events written before the full input was stored hold
+// only command, description, subagent_type, run_in_background and prompt, which
+// read the same way.
+type ToolInput map[string]any
+
+// Str returns the string field k, "" when it is absent or not a string.
+func (in ToolInput) Str(k string) string { s, _ := in[k].(string); return s }
+
+// Bool returns the bool field k.
+func (in ToolInput) Bool(k string) bool { b, _ := in[k].(bool); return b }
+
+// Preview is the head and tail of a long text with its full rune length.
+type Preview struct {
+	Head  string `json:"head,omitempty"`
+	Tail  string `json:"tail,omitempty"` // empty when Head holds the whole text
+	Chars int    `json:"chars"`
+}
+
+// ToolOutput is what is kept of a tool_response: its size for every tool, and for
+// Bash head+tail previews of stdout and stderr. No other response body is stored.
+type ToolOutput struct {
+	Bytes       int      `json:"bytes,omitempty"`
+	Stdout      *Preview `json:"stdout,omitempty"`
+	Stderr      *Preview `json:"stderr,omitempty"`
+	Interrupted bool     `json:"interrupted,omitempty"`
 }
 
 // ToolResponse is the kept subset of a hook's tool_response.
@@ -73,7 +93,8 @@ type Event struct {
 	ToolUseID          string           `json:"tool_use_id,omitempty"`
 	Target             string           `json:"target,omitempty"` // allowlisted summary of what the tool works on, see hook.Target
 	DurationMs         int64            `json:"duration_ms,omitempty"`
-	ToolInput          *ToolInput       `json:"tool_input,omitempty"`
+	ToolInput          ToolInput        `json:"tool_input,omitempty"`
+	ToolOutput         *ToolOutput      `json:"tool_output,omitempty"`
 	ToolResponse       *ToolResponse    `json:"tool_response,omitempty"`
 	Error              string           `json:"error,omitempty"`
 	IsInterrupt        bool             `json:"is_interrupt,omitempty"`
@@ -137,4 +158,16 @@ func (r Record) num(k string) int64 {
 func (r Record) float(k string) float64 {
 	f, _ := r.Attrs[k].(float64)
 	return f
+}
+
+// RelPath shortens p to be relative to cwd when it lies under it.
+func RelPath(p, cwd string) string {
+	if p == "" || cwd == "" || !filepath.IsAbs(p) || !filepath.IsAbs(cwd) {
+		return p
+	}
+	r, err := filepath.Rel(cwd, p)
+	if err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+		return p
+	}
+	return r
 }

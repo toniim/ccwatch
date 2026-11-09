@@ -82,6 +82,7 @@ func (s *Server) Wrap(next http.Handler) http.Handler {
 	mux.HandleFunc("/api/sessions", s.sessions)
 	mux.HandleFunc("/api/state", s.state)
 	mux.HandleFunc("/api/prompt", s.prompt)
+	mux.HandleFunc("/api/tool", s.tool)
 	mux.HandleFunc("/api/stream", s.stream)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		isUI := (r.Method == http.MethodGet || r.Method == http.MethodHead) &&
@@ -187,6 +188,89 @@ func (s *Server) prompt(w http.ResponseWriter, r *http.Request) {
 		text = e.Prompt
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"key": key, "kind": kind, "raw": raw, "text": text, "chars": utf8.RuneCountInString(text)})
+}
+
+// tool serves the stored detail of one tool call: its full input, the Bash
+// output previews, duration and outcome. key is the t<event index> of a log row.
+func (s *Server) tool(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	id, code, msg := s.resolve(q)
+	if code != 0 {
+		writeJSON(w, code, map[string]string{"error": msg})
+		return
+	}
+	key := q.Get("key")
+	i, err := strconv.Atoi(strings.TrimPrefix(key, "t"))
+	if !strings.HasPrefix(key, "t") || err != nil || state.ToolKey(i) != key {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad key"})
+		return
+	}
+	evs := state.LoadEvents(s.Src.Dir, id)
+	if i < 0 || i >= len(evs) || evs[i].ToolName == "" || !isToolEvent(evs[i].Name) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "unknown key"})
+		return
+	}
+	writeJSON(w, http.StatusOK, toolDetail(evs, i))
+}
+
+func isToolEvent(name string) bool {
+	return name == "PreToolUse" || name == "PostToolUse" || name == "PostToolUseFailure"
+}
+
+// ToolDetail is the answer of /api/tool.
+type ToolDetail struct {
+	Key      string            `json:"key"`
+	Tool     string            `json:"tool"`
+	Input    state.ToolInput   `json:"input"`
+	Output   *state.ToolOutput `json:"output,omitempty"`
+	Duration int64             `json:"duration"` // ms, 0 = unknown
+	OK       *bool             `json:"ok"`       // nil while the call is still running
+	Error    string            `json:"error,omitempty"`
+	Summary  string            `json:"summary"`
+}
+
+// toolDetail joins the events of the call at evs[i] by tool_use_id (every event
+// is delivered twice when two hook registrations exist: the first one with data wins).
+func toolDetail(evs []state.Event, i int) ToolDetail {
+	first := evs[i]
+	d := ToolDetail{Key: state.ToolKey(i), Tool: first.ToolName}
+	cwd := ""
+	for _, e := range evs {
+		if e.Cwd != "" {
+			cwd = e.Cwd
+		}
+	}
+	var target string
+	for j, e := range evs {
+		if j != i && (first.ToolUseID == "" || e.ToolUseID != first.ToolUseID || e.ToolName != first.ToolName || !isToolEvent(e.Name)) {
+			continue
+		}
+		target = pickStr(target, e.Target)
+		if len(d.Input) == 0 {
+			d.Input = e.ToolInput
+		}
+		if d.Output == nil {
+			d.Output = e.ToolOutput
+		}
+		if e.Name != "PreToolUse" && d.OK == nil {
+			ok := e.Name == "PostToolUse"
+			d.OK = &ok
+			d.Duration = e.DurationMs
+			d.Error = e.Error
+		}
+	}
+	if d.Input == nil {
+		d.Input = state.ToolInput{}
+	}
+	d.Summary = state.ToolSummary(d.Tool, d.Input, target, cwd)
+	return d
+}
+
+func pickStr(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }
 
 func (s *Server) stream(w http.ResponseWriter, r *http.Request) {

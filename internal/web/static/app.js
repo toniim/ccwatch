@@ -304,19 +304,21 @@ function renderAgents(d) {
 // ---- what a session / agent is doing now ----
 const secs = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return s < 60 ? s + "s" : Math.floor(s / 60) + "m" + String(s % 60).padStart(2, "0") + "s"; };
 const dur = (ms) => ms < 1000 ? ms + "ms" : ms < 10000 ? (ms / 1000).toFixed(1) + "s" : secs(ms);
-// paintNow writes "now: Edit app.js · 4s" (running) or "last: Edit app.js ✓ 4.2s" (muted, finished) into el.
+// paintNow writes "now: Bash go test ./... · 4s" (running) or "last: Bash go test ./... ✓ 4.2s" (muted,
+// finished) into el as ONE line; the full text (the whole command) is the hover title.
 function paintNow(el) {
   const a = el._act;
   if (!a) { el.hidden = true; return; }
   el.hidden = false;
   el.classList.toggle("idle", !a.running);
+  el.title = a.title || a.text;
   el.textContent = "";
   if (a.running) {
     const t = Date.parse(a.start);
-    el.append("now: " + a.text + (a.more ? " (+" + a.more + " more)" : ""));
-    if (t) el.append(" · ", h("span", { class: "el" }, secs(Date.now() - t)));
+    el.append(h("span", { class: "nt" }, "now: " + a.text + (a.more ? " (+" + a.more + " more)" : "")));
+    if (t) el.append(h("span", { class: "el" }, " · " + secs(Date.now() - t)));
   } else {
-    el.append("last: " + a.text + (a.failed ? " ✗" : " ✓") + (a.durMs ? " " + dur(a.durMs) : ""));
+    el.append(h("span", { class: "nt" }, "last: " + a.text), h("span", { class: "mk" }, (a.failed ? " ✗" : " ✓") + (a.durMs ? " " + dur(a.durMs) : "")));
   }
 }
 function setNow(el, act) { el._act = act || null; paintNow(el); }
@@ -423,20 +425,93 @@ function fillRow(sid, r, txt) {
   loadPrompt(sid, r.key, raw).then((t) => { if (body.isConnected) body.textContent = t; });
 }
 
+// ---- tool rows: "Bash  go test ./... ✓ 28ms"; a click expands the stored params and the Bash output ----
+const toolCache = new Map(); // sessionId|key -> detail of a finished call
+async function loadTool(sid, key) {
+  const ck = sid + "|" + key;
+  if (toolCache.has(ck)) return toolCache.get(ck);
+  const r = await fetch("/api/tool?session=" + encodeURIComponent(sid) + "&key=" + encodeURIComponent(key));
+  if (!r.ok) return { error: "could not load the call: " + r.status };
+  const d = await r.json();
+  if (d.ok !== null) toolCache.set(ck, d);
+  return d;
+}
+
+function previewText(label, p) {
+  if (!p) return null;
+  const box = h("div", { class: "out" }, h("div", { class: "k" }, label + " (" + p.chars + " chars)"));
+  if (p.tail) box.append(h("pre", { class: "v" }, p.head + "\n… " + (p.chars - [...p.head].length - [...p.tail].length) + " chars omitted …\n" + p.tail));
+  else box.append(h("pre", { class: "v" }, p.head));
+  return box;
+}
+
+function toolDetailNode(d) {
+  const box = h("div", { class: "detail" });
+  if (d.error && !d.input) { box.append(d.error); return box; }
+  const input = d.input || {};
+  const keys = Object.keys(input).filter((k) => !k.endsWith("_chars"));
+  if (!keys.length) box.append(h("div", { class: "k" }, "no params stored"));
+  for (const k of keys) {
+    const v = input[k];
+    const cut = input[k + "_chars"];
+    const text = typeof v === "string" ? v : JSON.stringify(v, null, 2);
+    box.append(h("div", { class: "param" }, h("div", { class: "k" }, k + (cut ? " (cut, " + cut + " chars)" : "")), h("pre", { class: "v" }, text)));
+  }
+  const o = d.output;
+  if (o) {
+    for (const n of [previewText("stdout", o.stdout), previewText("stderr", o.stderr)]) if (n) box.append(n);
+    if (o.interrupted) box.append(h("div", { class: "k" }, "interrupted"));
+    if (!o.stdout && !o.stderr && o.bytes) box.append(h("div", { class: "k" }, "response: " + o.bytes + " bytes"));
+  }
+  if (d.error) box.append(h("div", { class: "param" }, h("div", { class: "k" }, "error"), h("pre", { class: "v" }, d.error)));
+  return box;
+}
+
+// toolLine builds one tool call row (also used inside a group): name, summary, outcome; click to expand.
+function toolLine(sid, r, grouped) {
+  const rk = sid + "|" + r.key;
+  const mark = r.tag === "ok" ? " ✓" : r.tag === "fail" ? " ✗" : r.tag === "end" ? " (no result)" : "";
+  const txt = h("span", { class: "txt" });
+  const head = h("span", { class: "head" }, h("span", { class: "tn" }, r.tool || ""), "  ",
+    h("span", { class: "ts", title: r.summary }, r.summary || ""), h("span", { class: "tm" }, mark + (r.dur_ms ? " " + dur(r.dur_ms) : "")));
+  const row = h("div", { class: (grouped ? "titem " : "row tool ") + (r.tag || "") }, h("span", { class: "t" }, clock(r.ts)));
+  if (!grouped) row.append(h("span", { class: "who", title: r.who }, r.who));
+  row.append(txt);
+  row.classList.add("more");
+  const fill = () => {
+    txt.textContent = "";
+    txt.append(head);
+    row.classList.toggle("open", openRows.has(rk));
+    if (!openRows.has(rk)) return;
+    const body = h("div", { class: "detail" }, "loading…");
+    txt.append(body);
+    loadTool(sid, r.key).then((d) => { if (body.isConnected) body.replaceWith(toolDetailNode(d)); });
+  };
+  fill();
+  row.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (ev.target.closest(".detail") || window.getSelection().toString()) return;
+    if (openRows.has(rk)) openRows.delete(rk); else openRows.add(rk);
+    fill();
+  });
+  return row;
+}
+
 function toolRows(sid, r) { // a grouped row: collapsed to "N tool calls", expands to its calls
   const gk = sid + "|g|" + r.ts + "|" + r.who;
-  const txt = h("span", { class: "txt" }, r.text + (r.count > (r.items || []).length ? " (last " + r.items.length + " listed)" : ""));
+  const txt = h("span", { class: "txt" });
   const row = h("div", { class: "row tools" + (openRows.has(gk) ? " open" : "") },
     h("span", { class: "t" }, clock(r.ts)), h("span", { class: "who", title: r.who }, r.who), txt);
   const fill = () => {
-    row.querySelector(".sub")?.remove();
+    txt.textContent = r.text + (r.count > (r.items || []).length ? " (last " + r.items.length + " listed)" : "");
     if (!openRows.has(gk)) return;
     const sub = h("div", { class: "sub" });
-    for (const it of r.items || []) sub.append(h("div", { class: it.tag }, h("span", { class: "t" }, clock(it.ts)), h("span", { class: "txt" }, it.text)));
+    for (const it of r.items || []) sub.append(toolLine(sid, it, true));
     txt.append(sub);
   };
   fill();
-  row.addEventListener("click", () => {
+  row.addEventListener("click", (ev) => {
+    if (ev.target.closest(".sub")) return;
     if (openRows.has(gk)) { openRows.delete(gk); row.classList.remove("open"); } else { openRows.add(gk); row.classList.add("open"); }
     fill();
   });
@@ -450,6 +525,7 @@ function renderLog(d) {
   if (!rows.length) box.append(h("div", { class: "empty" }, "no events yet"));
   rows.forEach((r, i) => {
     if (r.kind === "tools") { box.append(toolRows(d.sessionId, r)); return; }
+    if (r.kind === "tool" && r.key) { box.append(toolLine(d.sessionId, r, false)); return; }
     const key = d.sessionId + "|" + r.ts + "|" + r.who + "|" + r.text + "|" + r.tag;
     const isNew = !firstLog && !seenLog.has(key);
     seenLog.add(key);

@@ -55,8 +55,8 @@ func TestTestCommandTruncatesTo120(t *testing.T) {
 
 func TestBuildIgnoresQuotedRunnerInOrcaDispatch(t *testing.T) {
 	evs := []Event{
-		{SessionID: "s", Name: "PostToolUse", ToolName: "Bash", ToolInput: &ToolInput{Command: orcaDispatch}},
-		{SessionID: "s", Name: "PostToolUse", ToolName: "Bash", ToolInput: &ToolInput{Command: "cd x && go test ./..."}},
+		{SessionID: "s", Name: "PostToolUse", ToolName: "Bash", ToolInput: ToolInput{"command": orcaDispatch}},
+		{SessionID: "s", Name: "PostToolUse", ToolName: "Bash", ToolInput: ToolInput{"command": "cd x && go test ./..."}},
 	}
 	s := Build(evs, nil)
 	if s.TestsPass != 1 || s.TestsFail != 0 {

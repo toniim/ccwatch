@@ -62,7 +62,8 @@ type Lane struct {
 // Activity is what a session or agent is doing now, or did last. The page ticks
 // the elapsed time itself from Start, so the payload only changes with the events.
 type Activity struct {
-	Text    string `json:"text"`
+	Text    string `json:"text"`            // one line: the tool and its parameters
+	Title   string `json:"title,omitempty"` // hover text: the full command when Text is cut or multi-line
 	Start   string `json:"start,omitempty"` // RFC3339Nano
 	Running bool   `json:"running"`
 	DurMs   int64  `json:"durMs,omitempty"` // finished calls
@@ -74,9 +75,16 @@ func activityOf(t *state.Tool, running bool) *Activity {
 	if t == nil {
 		return nil
 	}
-	return &Activity{Text: state.ToolLabel(t.Name, t.Target), Start: t.Start.Format(time.RFC3339Nano),
+	a := &Activity{Text: t.Label(), Start: t.Start.Format(time.RFC3339Nano),
 		Running: running, DurMs: t.DurMs, Failed: t.Failed}
+	if full := ToolLabelFull(t); full != a.Text {
+		a.Title = full
+	}
+	return a
 }
+
+// ToolLabelFull is the label with the whole Bash command instead of its first line.
+func ToolLabelFull(t *state.Tool) string { return state.ToolLabel(t.Name, t.Full) }
 
 // Back is the "back to main" section.
 type Back struct {
@@ -225,7 +233,7 @@ func Build(s state.Session, ext Ext) Dashboard {
 			l.Slots = append(l.Slots, sl)
 			title := sl
 			if a.Running && a.Now != nil {
-				title += " · " + state.ToolLabel(a.Now.Name, a.Now.Target)
+				title += " · " + a.Now.Label()
 				if cur != nil {
 					l.Now.More++
 				}
