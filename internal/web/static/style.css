@@ -4,10 +4,11 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); }
-body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; padding: 0 16px 24px; max-width: 1280px; margin: 0 auto; }
+body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; padding: 0 16px 24px; max-width: 1680px; margin: 0 auto; }
 #bar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; padding: 12px 0 6px; }
 .brand { font-weight: 700; color: var(--purple); letter-spacing: .5px; }
-.field select { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; font: inherit; max-width: 52ch; }
+.tgl { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.tgl:hover, .tgl[aria-expanded="true"] { border-color: var(--purple); }
 .chk { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .seg button { background: var(--panel); color: var(--muted); border: 0; padding: 4px 12px; font: inherit; cursor: pointer; }
@@ -87,7 +88,36 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
   .brow { grid-template-columns: 1fr; }
   #log .row { grid-template-columns: 9ch 1fr; } #log .row .txt { grid-column: 1 / 3; }
   .pill { margin-left: 0; }
-  .field { flex: 1 1 100%; display: flex; gap: 8px; align-items: center; min-width: 0; }
-  .field select { flex: 1; min-width: 0; max-width: 100%; }
 }
 #worker-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* session tree sidebar */
+#layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 0 16px; align-items: start; }
+body.side-off #layout { grid-template-columns: minmax(0, 1fr); }
+body.side-off #side { display: none; }
+#side { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; }
+#side .chk { padding: 0 6px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+#tree .row { display: flex; align-items: center; padding-left: calc(var(--d, 0) * 14px); }
+#tree .arw { flex: none; width: 18px; height: 22px; background: none; border: 0; color: var(--muted); font: inherit; padding: 0; cursor: pointer; }
+#tree .arw:hover { color: var(--fg); }
+#tree .arw.none { cursor: default; visibility: hidden; }
+#tree .sel { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; background: none; border: 0; border-left: 2px solid transparent; border-radius: 3px; color: var(--fg); font: inherit; text-align: left; padding: 2px 6px 2px 4px; cursor: pointer; white-space: nowrap; }
+#tree .sel:hover { background: #121a30; }
+#tree .row.cur .sel { background: #1b2540; border-left-color: var(--purple); }
+#tree .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+#tree .dot.running { background: var(--orange); animation: pulse 1s ease-in-out infinite; }
+#tree .dot.ended { background: var(--muted); opacity: .6; }
+#tree .dir { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#tree .row.ended-row .dir { color: var(--muted); }
+#tree .model { flex: none; color: var(--blue); }
+#tree .badge { flex: none; color: var(--orange); }
+#tree .sid { flex: none; color: var(--muted); margin-left: auto; padding-left: 4px; }
+#tree .runnode .sel { color: var(--purple); }
+#tree .runnode .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#tree .group .sel { color: var(--muted); }
+#scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 9; }
+@media (max-width: 899.98px) {
+  #layout, body.side-off #layout { grid-template-columns: minmax(0, 1fr); }
+  #side, body.side-off #side { display: block; position: fixed; z-index: 10; top: 0; left: 0; bottom: 0; max-height: none; width: min(86vw, 340px); border-radius: 0; transform: translateX(-102%); transition: transform .2s ease; }
+  body.side-on #side { transform: none; }
+}

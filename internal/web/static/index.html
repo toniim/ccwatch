@@ -11,15 +11,21 @@
 </head>
 <body>
 <header id="bar">
+  <button id="side-toggle" class="tgl" type="button" aria-controls="side" aria-expanded="true" title="hide / show sessions  [ [ ]">sessions</button>
   <span class="brand">ccwatch</span>
-  <label class="field">session <select id="session" aria-label="session"><option>loading…</option></select></label>
-  <label class="chk"><input type="checkbox" id="follow" checked> follow latest</label>
   <div class="seg" role="group" aria-label="view">
     <button id="v-dash" class="on" type="button">dashboard</button>
     <button id="v-table" type="button">table</button>
   </div>
   <span id="live" class="pill off">connecting</span>
 </header>
+<div id="layout">
+<aside id="side" aria-label="sessions">
+  <label class="chk"><input type="checkbox" id="follow" checked> follow latest</label>
+  <div id="tree" role="tree"><div class="muted">loading…</div></div>
+</aside>
+<div id="scrim" hidden></div>
+<div id="content">
 <div id="cwd" class="muted"></div>
 
 <main id="dash">
@@ -66,6 +72,8 @@
 </main>
 
 <footer id="foot" class="muted"></footer>
+</div>
+</div>
 <script src="/app.js"></script>
 </body>
 </html>

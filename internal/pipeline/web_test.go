@@ -112,12 +112,15 @@ func TestWebPageAndHostGuard(t *testing.T) {
 			t.Errorf("%s: %d, %d bytes", path, resp.StatusCode, len(body))
 		}
 		if path == "/" {
-			for _, id := range []string{`id="session"`, `id="follow"`, `id="v-dash"`, `id="v-table"`, `id="lanes"`, `id="log"`} {
+			for _, id := range []string{`id="tree"`, `id="side-toggle"`, `id="follow"`, `id="v-dash"`, `id="v-table"`, `id="lanes"`, `id="log"`} {
 				if !strings.Contains(string(body), id) {
 					t.Errorf("page lacks %s", id)
 				}
 			}
 			page := string(body)
+			if strings.Contains(page, "<select") {
+				t.Error("the session picker <select> is gone; the sidebar tree replaces it")
+			}
 			for _, tag := range []string{
 				`<link rel="preconnect" href="https://fonts.googleapis.com">`,
 				`<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,

@@ -5,10 +5,11 @@ let spinN = 0;
 let es = null;
 const pinned = new URLSearchParams(location.search).get("session") || "";
 let follow = !pinned;   // ?session=<id> pins that session on load
-let current = pinned;   // session id the picker shows
+let current = pinned;   // session id the tree highlights
 let view = "dash";
 let lastData = null;
 let lastList = "";
+let sessions = [];
 const seenLog = new Set();
 let firstLog = true;
 
@@ -46,24 +47,162 @@ function connect() {
   es.onopen = () => setLive(true);
   es.onerror = () => setLive(false);
   es.addEventListener("state", (e) => { lastData = JSON.parse(e.data); render(lastData); });
-  es.addEventListener("sessions", (e) => { if (e.data !== lastList) { lastList = e.data; renderPicker(JSON.parse(e.data)); } });
+  es.addEventListener("sessions", (e) => { if (e.data !== lastList) { lastList = e.data; sessions = JSON.parse(e.data); renderTree(); } });
 }
 
-function renderPicker(list) {
-  const sel = $("session");
-  sel.textContent = "";
-  if (!list.length) sel.append(h("option", {}, "no sessions yet"));
+// ---- session tree (sidebar) ----
+const DESKTOP = window.matchMedia("(min-width: 900px)");
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage may be unavailable */ } },
+};
+let expanded = {};  // node key -> explicit expand (true) / collapse (false); unset = default
+try { expanded = JSON.parse(store.get("ccwatch.tree") || "{}") || {}; } catch (e) { expanded = {}; }
+const isOpen = (key, dflt) => key in expanded ? expanded[key] : dflt;
+function setOpen(key, v) { expanded[key] = v; store.set("ccwatch.tree", JSON.stringify(expanded)); }
+
+const dirName = (s) => base(s.cwd) || s.id.slice(0, 8);
+const runText = (r) => "orca run: " + (r.objective || r.id);
+
+// buildTree turns the flat /api/sessions list into nodes: coordinators and
+// standalone sessions at the roots, a run node per Run under a coordinator
+// (a synthetic one at the root for workers whose coordinator is unknown),
+// workers under their run, nested sessions under their parent.
+function buildTree(list) {
+  const byId = new Map(list.map((s) => [s.id, s]));
+  const sess = (s) => ({ key: s.id, kind: "session", s, kids: [] });
+  const nodes = new Map(list.map((s) => [s.id, sess(s)]));
+  const roots = [];
+  const runNodes = new Map(); // coordinator|run id -> run node
+  const runNode = (owner, run) => {
+    const key = "run:" + (owner || "") + ":" + run.id;
+    if (!runNodes.has(key)) runNodes.set(key, { key, kind: "run", run, kids: [] });
+    return runNodes.get(key);
+  };
+  for (const s of list) if (s.role === "coordinator" && s.run) { const rn = runNode(s.id, s.run); nodes.get(s.id).kids.push(rn); }
   for (const s of list) {
-    const o = h("option", { value: s.id }, s.label);
-    if (s.id === current) o.selected = true;
-    sel.append(o);
+    const n = nodes.get(s.id);
+    const par = s.parent && byId.has(s.parent) ? s.parent : "";
+    if (s.role === "worker" && s.run) {
+      if (par) { const rn = runNode(par, s.run); if (!nodes.get(par).kids.includes(rn)) nodes.get(par).kids.push(rn); rn.kids.push(n); }
+      else { const rn = runNode("", s.run); if (!roots.includes(rn)) roots.push(rn); rn.kids.push(n); }
+    } else if (par) nodes.get(par).kids.push(n);
+    else roots.push(n);
+  }
+  return roots;
+}
+const nodeEnded = (n) => n.kind === "session" ? n.s.ended : n.kids.length > 0 && n.kids.every(nodeEnded);
+
+function nodeRow(n, depth, selId) {
+  const hasKids = n.kids.length > 0;
+  const open = hasKids && isOpen(n.key, true);
+  const arw = h("button", { class: "arw" + (hasKids ? "" : " none"), type: "button", "aria-label": open ? "collapse" : "expand", tabindex: hasKids ? "0" : "-1" }, open ? "▾" : "▸");
+  arw.addEventListener("click", () => { setOpen(n.key, !open); renderTree(); });
+  let sel, cls = "row";
+  if (n.kind === "session") {
+    const s = n.s;
+    sel = h("button", { class: "sel", type: "button", title: s.label },
+      h("span", { class: "dot " + s.state }), h("span", { class: "dir" }, dirName(s)));
+    if (s.model) sel.append(h("span", { class: "model" }, s.model));
+    if (s.subagents > 0) sel.append(h("span", { class: "badge" }, s.live + "/" + s.subagents + " agents"));
+    sel.append(h("span", { class: "sid" }, s.id.slice(0, 8)));
+    sel.addEventListener("click", () => pick(s.id));
+    if (s.id === selId) cls += " cur";
+    if (s.ended) cls += " ended-row";
+  } else {
+    const t = runText(n.run);
+    sel = h("button", { class: "sel", type: "button", title: t }, h("span", { class: "txt" }, t));
+    sel.addEventListener("click", () => { setOpen(n.key, !open); renderTree(); });
+    cls += " runnode";
+  }
+  const row = h("div", { class: cls, role: "treeitem", style: "--d:" + depth }, arw, sel);
+  if (hasKids) row.setAttribute("aria-expanded", String(open));
+  return row;
+}
+
+function paint(box, n, depth, selId) {
+  box.append(nodeRow(n, depth, selId));
+  if (n.kids.length && isOpen(n.key, true)) for (const k of n.kids) paint(box, k, depth + 1, selId);
+}
+
+// pathTo lists the node keys above a session, so a selection inside a collapsed branch can be revealed.
+function pathTo(nodes, id, trail = []) {
+  for (const n of nodes) {
+    if (n.kind === "session" && n.s.id === id) return trail;
+    const r = pathTo(n.kids, id, trail.concat(n.key));
+    if (r) return r;
+  }
+  return null;
+}
+
+let revealed = "";
+function renderTree() {
+  const box = $("tree");
+  box.textContent = "";
+  if (!sessions.length) { box.append(h("div", { class: "muted" }, "no sessions yet")); return; }
+  const roots = buildTree(sessions);
+  const active = roots.filter((n) => !nodeEnded(n));
+  const ended = roots.filter(nodeEnded);
+  const grp = { key: "group:ended", kind: "group", kids: ended };
+  if (current && current !== revealed) { // reveal the selection once, after it changed
+    const inAct = pathTo(active, current);
+    const inEnd = pathTo(ended, current);
+    if (inEnd) for (const k of ["group:ended", ...inEnd]) if (!isOpen(k, k !== "group:ended")) setOpen(k, true);
+    if (inAct) for (const k of inAct) if (!isOpen(k, true)) setOpen(k, true);
+    if (inAct || inEnd) revealed = current;
+  }
+  for (const n of active) paint(box, n, 0, current);
+  if (ended.length) {
+    const open = isOpen(grp.key, false);
+    const arw = h("button", { class: "arw", type: "button", "aria-label": open ? "collapse ended" : "expand ended" }, open ? "▾" : "▸");
+    const sel = h("button", { class: "sel", type: "button" }, h("span", { class: "txt" }, "ended (" + ended.length + ")"));
+    const toggle = () => { setOpen(grp.key, !open); renderTree(); };
+    arw.addEventListener("click", toggle);
+    sel.addEventListener("click", toggle);
+    const row = h("div", { class: "row group", role: "treeitem", "aria-expanded": String(open), style: "--d:0" }, arw, sel);
+    box.append(row);
+    if (open) for (const n of ended) paint(box, n, 1, current);
   }
 }
 
+function pick(id) {
+  current = id;
+  follow = false;
+  $("follow").checked = false;
+  firstLog = true;
+  if (!DESKTOP.matches) setSide(false);
+  renderTree();
+  connect();
+}
+
+// ---- sidebar visibility ----
+function setSide(on, save) {
+  document.body.classList.toggle("side-on", on);
+  document.body.classList.toggle("side-off", !on);
+  $("side-toggle").setAttribute("aria-expanded", String(on));
+  $("scrim").hidden = DESKTOP.matches || !on;
+  if (save && DESKTOP.matches) store.set("ccwatch.side", on ? "1" : "0");
+}
+const sideOn = () => document.body.classList.contains("side-on");
+function initSide() { // wide: the stored choice, shown by default; narrow: a drawer, hidden by default
+  const v = store.get("ccwatch.side");
+  setSide(DESKTOP.matches ? v !== "0" : false);
+}
+$("side-toggle").addEventListener("click", () => setSide(!sideOn(), true));
+$("scrim").addEventListener("click", () => setSide(false));
+DESKTOP.addEventListener("change", initSide);
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  const typing = t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) && t.type !== "checkbox");
+  if (e.key === "[" && !typing) { e.preventDefault(); setSide(!sideOn(), true); }
+  else if (e.key === "Escape" && !DESKTOP.matches && sideOn()) setSide(false);
+});
+initSide();
+
 function render(d) {
   for (const k of ["agents", "plan", "lanes", "log", "table"]) d[k] = d[k] || []; // never trust null arrays
-  current = d.sessionId;
-  for (const o of $("session").options) o.selected = o.value === current;
+  if (current !== d.sessionId) { current = d.sessionId; renderTree(); } // follow latest moves the highlight
   $("cwd").textContent = "cwd " + d.cwd + " · session " + d.sessionId + (d.ended ? " · ended" : "");
   renderAgents(d);
   renderMain(d);
@@ -248,14 +387,6 @@ $("follow").addEventListener("change", (e) => {
   firstLog = true;
   connect();
 });
-$("session").addEventListener("change", (e) => {
-  current = e.target.value;
-  follow = false;
-  $("follow").checked = false;
-  firstLog = true;
-  connect();
-});
-
 setInterval(() => {
   spinN++;
   for (const n of document.querySelectorAll(".spin")) if (n.textContent.trim()) n.textContent = SPIN[spinN % 4];
@@ -264,6 +395,8 @@ setInterval(() => {
 
 // Start: honour ?session=<id> only if that session exists, else follow latest.
 fetch("/api/sessions").then((r) => r.json()).catch(() => []).then((list) => {
+  sessions = list || [];
+  renderTree();
   if (pinned && !(list || []).some((s) => s.id === pinned)) { follow = true; current = ""; }
   $("follow").checked = follow;
   connect();
