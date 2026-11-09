@@ -19,6 +19,13 @@ type orcaEntry struct {
 	inflight bool
 }
 
+type treeEntry struct {
+	od       OrcaData
+	obj      map[string]string
+	at       time.Time
+	inflight bool
+}
+
 type allCache struct {
 	list []state.Session
 	at   time.Time
@@ -33,13 +40,15 @@ type Source struct {
 	OrcaOn     bool
 	Sync       bool // fetch Orca inline (for one-shot frames)
 
-	mu     sync.Mutex
-	orca   map[string]*orcaEntry // by session id
-	all    allCache
-	agents map[string]agents.Def
-	agCwd  string
-	hooks  agents.HookInfo
-	slowAt time.Time
+	mu      sync.Mutex
+	orca    map[string]*orcaEntry // by session id
+	tree    treeEntry             // Orca data for the session tree, all sessions at once
+	dispRun map[string]string     // dispatch id -> run id (a dispatch never changes its run)
+	all     allCache
+	agents  map[string]agents.Def
+	agCwd   string
+	hooks   agents.HookInfo
+	slowAt  time.Time
 }
 
 // NewSource builds a Source for dir; orca is used only when the CLI is on PATH.
@@ -49,7 +58,7 @@ func NewSource(dir string) *Source {
 		h, _ := os.UserHomeDir()
 		home = filepath.Join(h, ".claude")
 	}
-	return &Source{Dir: dir, ClaudeHome: home, OrcaOn: workers.Available(), orca: map[string]*orcaEntry{}}
+	return &Source{Dir: dir, ClaudeHome: home, OrcaOn: workers.Available(), orca: map[string]*orcaEntry{}, dispRun: map[string]string{}}
 }
 
 func (src *Source) slow(cwd string) (map[string]agents.Def, agents.HookInfo) {
@@ -160,4 +169,73 @@ func (src *Source) Build(s state.Session) Dashboard {
 	ext := Link(s, merged, od)
 	ext.Agents, ext.Hooks = ag, hooks
 	return Build(s, ext)
+}
+
+// fetchTree reads the worker list and run objectives, and resolves the run of
+// every dispatch whose terminal belongs to a known session. Resolved dispatches
+// are remembered, so only new ones cost a CLI call.
+func (src *Source) fetchTree(all []state.Session) (OrcaData, map[string]string, bool) {
+	ws, err := workers.Fetch()
+	if err != nil {
+		return OrcaData{}, nil, false
+	}
+	terms := map[string]bool{}
+	for _, s := range all {
+		if s.OrcaTerminal != "" {
+			terms[s.OrcaTerminal] = true
+		}
+	}
+	od := OrcaData{Workers: ws, DispatchRun: map[string]string{}}
+	for _, w := range ws {
+		if !terms[w.Terminal] {
+			continue
+		}
+		src.mu.Lock()
+		rid, ok := src.dispRun[w.DispatchID]
+		src.mu.Unlock()
+		if !ok {
+			rid = workers.RunOfDispatch(w.DispatchID)
+			if rid != "" {
+				src.mu.Lock()
+				src.dispRun[w.DispatchID] = rid
+				src.mu.Unlock()
+			}
+		}
+		if rid != "" {
+			od.DispatchRun[w.DispatchID] = rid
+		}
+	}
+	return od, workers.FetchRunObjectives(), true
+}
+
+// Relations returns role, parent and run for every session in all. The Orca part
+// is cached for 5 s and refreshed in the background, so it never blocks a request
+// (unless Sync is set); until the first answer arrives only the Orca-free roles show.
+func (src *Source) Relations(all []state.Session) map[string]Rel {
+	if !src.OrcaOn {
+		return Relations(all, OrcaData{}, nil)
+	}
+	src.mu.Lock()
+	defer src.mu.Unlock()
+	e := &src.tree
+	if !e.inflight && time.Since(e.at) > slowEvery {
+		e.inflight = true
+		fetch := func() {
+			od, obj, ok := src.fetchTree(all)
+			src.mu.Lock()
+			if ok {
+				e.od, e.obj = od, obj
+			}
+			e.at, e.inflight = time.Now(), false
+			src.mu.Unlock()
+		}
+		if src.Sync {
+			src.mu.Unlock()
+			fetch()
+			src.mu.Lock()
+		} else {
+			go fetch()
+		}
+	}
+	return Relations(all, e.od, e.obj)
 }

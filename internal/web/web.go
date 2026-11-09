@@ -35,6 +35,10 @@ type SessionInfo struct {
 	State     string `json:"state"` // ended | running (live agents) | active
 	Label     string `json:"label"` // picker text: id · state · agents · model · dir
 	Updated   string `json:"updated"`
+
+	Role   string       `json:"role"`   // coordinator | worker | nested | standalone
+	Parent string       `json:"parent"` // parent session id, "" for a root
+	Run    *view.RunRef `json:"run"`    // coordinator's Run / the Run a worker belongs to
 }
 
 // Server holds what the handlers need.
@@ -108,10 +112,17 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 func (s *Server) listSessions() []SessionInfo {
 	ids := state.Sessions(s.Src.Dir)
 	out := make([]SessionInfo, 0, len(ids))
-	for _, id := range ids {
-		ss := state.Load(s.Src.Dir, id)
+	loaded := make([]state.Session, len(ids))
+	for i, id := range ids {
+		loaded[i] = state.Load(s.Src.Dir, id)
+	}
+	rels := s.Src.Relations(loaded)
+	for i, id := range ids {
+		ss := loaded[i]
 		info := SessionInfo{ID: id, Cwd: ss.Cwd, Model: view.ShortModel(ss.Model), Ended: ss.Ended, Subagents: len(ss.Subagents), Live: ss.Live()}
 		info.State, info.Label = sessionLabel(id, ss)
+		rel := rels[id]
+		info.Role, info.Parent, info.Run = rel.Role, rel.Parent, rel.Run
 		if t := state.ModTime(s.Src.Dir, id); !t.IsZero() {
 			info.Updated = t.UTC().Format(time.RFC3339)
 		}

@@ -255,3 +255,27 @@ func FetchRunTasks(runID string, ws []Worker) *Run {
 	}
 	return run
 }
+
+// FetchRunObjectives maps run id to objective for the 100 newest runs.
+func FetchRunObjectives() map[string]string {
+	out, err := runOrca("run-list", "--limit", "100", "--json")
+	if err != nil {
+		return nil
+	}
+	var rl struct {
+		Result struct {
+			Runs []struct {
+				ID        string `json:"id"`
+				Objective string `json:"objective"`
+			} `json:"runs"`
+		} `json:"result"`
+	}
+	if json.Unmarshal(out, &rl) != nil {
+		return nil
+	}
+	m := make(map[string]string, len(rl.Result.Runs))
+	for _, r := range rl.Result.Runs {
+		m[r.ID] = r.Objective
+	}
+	return m
+}
