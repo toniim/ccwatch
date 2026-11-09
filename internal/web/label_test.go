@@ -30,6 +30,8 @@ func TestSessionLabel(t *testing.T) {
 			"active", "aaaaaaaa · active · no agents · model-b · demo"},
 		{"done agents, not ended", state.Session{Model: "model-b", Cwd: "/work/demo", Subagents: agents(false, false, false)},
 			"active", "aaaaaaaa · active · 3 agents done · model-b · demo"},
+		{"profile tag before the dir", state.Session{Model: "model-b", Cwd: "/work/demo", Profile: "vb"},
+			"active", "aaaaaaaa · active · no agents · model-b · vb · demo"},
 		{"unknown model and dir", state.Session{Ended: true},
 			"ended", "aaaaaaaa · ended · no agents · ?"},
 	}

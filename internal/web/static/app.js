@@ -125,6 +125,7 @@ function nodeRow(n, depth, selId, cut) {
     sel = h("button", { class: "sel", type: "button", title: s.label },
       h("span", { class: "dot " + s.state }), nameNode(dirName(s), cut));
     if (s.subagents > 0) sel.append(h("span", { class: "badge", title: s.live + " of " + (s.subagents === 1 ? "1 agent" : s.subagents + " agents") + " running" }, s.live + "/" + s.subagents));
+    if (s.profile) sel.append(h("span", { class: "prof", title: "profile " + s.profile }, s.profile));
     sel.append(h("span", { class: "model" }, s.model || ""));
     sel.append(h("span", { class: "sid" }, s.id.slice(0, 8)));
     sel.addEventListener("click", () => pick(s.id));
@@ -301,6 +302,7 @@ function renderAgents(d) {
 
 function renderMain(d) {
   $("main-title").textContent = (d.model || "main") + " · main session";
+  if (d.profile) $("main-title").append(" · ", h("span", { class: "prof-name" }, d.profile));
   const live = d.state === "orchestrating" || d.state === "working";
   $("main-state").textContent = "";
   $("main-state").append(d.state + " [ ", h("span", { class: "spin" }, live ? SPIN[spinN % 4] : " "), " ]");

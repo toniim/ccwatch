@@ -43,6 +43,8 @@ type Session struct {
 	ID           string
 	Cwd          string
 	Model        string // last main-agent model seen in OTLP
+	Profile      string // first non-empty profile name seen ("" = default profile)
+	ConfigDir    string // first valid $HOME-relative config dir seen
 	Ended        bool
 	Subagents    []*Subagent
 	MainCtx      int64 // input+cache_read+cache_creation of last main api_request
@@ -214,6 +216,12 @@ func Build(events []Event, otel []Record) Session {
 		ts, _ := time.Parse(time.RFC3339Nano, e.TS)
 		if s.OrcaTerminal == "" {
 			s.OrcaTerminal = e.OrcaTerminal
+		}
+		if s.Profile == "" {
+			s.Profile = e.Profile
+		}
+		if s.ConfigDir == "" && ValidConfigDir(e.ConfigDir) {
+			s.ConfigDir = e.ConfigDir
 		}
 		if e.Name == "SessionStart" && (!sawStart || ts.Before(s.StartTS)) {
 			s.StartTS, sawStart = ts, true

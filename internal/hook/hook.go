@@ -60,6 +60,8 @@ type rawResponse struct {
 var (
 	terminalRe = regexp.MustCompile(`^term_[0-9a-fA-F-]{8,64}$`)
 	runIDRe    = regexp.MustCompile(`run_[0-9a-f]{12}`)
+
+	profileUnsafe = regexp.MustCompile(`[^A-Za-z0-9._-]`)
 )
 
 // OrcaTerminal returns $ORCA_TERMINAL_HANDLE when it has the term_<uuid> shape.
@@ -69,6 +71,41 @@ func OrcaTerminal() string {
 		return v
 	}
 	return ""
+}
+
+// Profile derives the short profile name and the $HOME-relative config dir from
+// CLAUDE_CONFIG_DIR. Unset or equal to <home>/.claude is the default profile
+// ("", ""). Otherwise the name is the last path element (the parent's name when
+// that element is "home") without leading dots and a leading "claude-". The
+// config dir is returned only when it lies under home. Nothing else is kept.
+func Profile(configDir, home string) (name, rel string) {
+	if configDir == "" {
+		return "", ""
+	}
+	dir := filepath.Clean(configDir)
+	if home != "" && dir == filepath.Join(home, ".claude") {
+		return "", ""
+	}
+	base := filepath.Base(dir)
+	if base == "home" {
+		base = filepath.Base(filepath.Dir(dir))
+	}
+	base = strings.TrimLeft(base, ".")
+	base = strings.TrimPrefix(base, "claude-")
+	base = strings.TrimLeft(base, ".")
+	if base == "" || base == "/" {
+		return "", ""
+	}
+	name = profileUnsafe.ReplaceAllString(base, "-")
+	if len(name) > 24 {
+		name = name[:24]
+	}
+	if home != "" && filepath.IsAbs(home) {
+		if r, err := filepath.Rel(home, dir); err == nil && state.ValidConfigDir(filepath.ToSlash(r)) {
+			rel = filepath.ToSlash(r)
+		}
+	}
+	return name, rel
 }
 
 // runIDs returns the distinct run ids in s, in order of appearance.
@@ -185,6 +222,8 @@ func Run(in io.Reader, dir string, now time.Time) error {
 		return nil
 	}
 	e.OrcaTerminal = OrcaTerminal()
+	home, _ := os.UserHomeDir()
+	e.Profile, e.ConfigDir = Profile(os.Getenv("CLAUDE_CONFIG_DIR"), home)
 	line, err := json.Marshal(e)
 	if err != nil {
 		return err

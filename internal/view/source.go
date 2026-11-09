@@ -37,6 +37,7 @@ type allCache struct {
 type Source struct {
 	Dir        string
 	ClaudeHome string // default $CCWATCH_CLAUDE_HOME or ~/.claude
+	UserHome   string // base for a profile session's relative config dir (default $HOME)
 	OrcaOn     bool
 	Sync       bool // fetch Orca inline (for one-shot frames)
 
@@ -45,10 +46,13 @@ type Source struct {
 	tree    treeEntry             // Orca data for the session tree, all sessions at once
 	dispRun map[string]string     // dispatch id -> run id (a dispatch never changes its run)
 	all     allCache
-	agents  map[string]agents.Def
-	agCwd   string
-	hooks   agents.HookInfo
-	slowAt  time.Time
+	slowC   map[string]*slowEntry // by config home + cwd
+}
+
+type slowEntry struct {
+	agents map[string]agents.Def
+	hooks  agents.HookInfo
+	at     time.Time
 }
 
 // NewSource builds a Source for dir; orca is used only when the CLI is on PATH.
@@ -58,18 +62,33 @@ func NewSource(dir string) *Source {
 		h, _ := os.UserHomeDir()
 		home = filepath.Join(h, ".claude")
 	}
-	return &Source{Dir: dir, ClaudeHome: home, OrcaOn: workers.Available(), orca: map[string]*orcaEntry{}, dispRun: map[string]string{}}
+	uh, _ := os.UserHomeDir()
+	return &Source{Dir: dir, ClaudeHome: home, UserHome: uh, slowC: map[string]*slowEntry{}, OrcaOn: workers.Available(), orca: map[string]*orcaEntry{}, dispRun: map[string]string{}}
 }
 
-func (src *Source) slow(cwd string) (map[string]agents.Def, agents.HookInfo) {
+// homeOf returns the Claude config dir whose settings.json and agents the
+// session uses: its own profile dir (under UserHome, validated) or ClaudeHome.
+func (src *Source) homeOf(s state.Session) string {
+	if s.Profile != "" && state.ValidConfigDir(s.ConfigDir) && src.UserHome != "" {
+		return filepath.Join(src.UserHome, filepath.FromSlash(s.ConfigDir))
+	}
+	return src.ClaudeHome
+}
+
+func (src *Source) slow(home, cwd string) (map[string]agents.Def, agents.HookInfo) {
 	src.mu.Lock()
 	defer src.mu.Unlock()
-	if src.agents == nil || src.agCwd != cwd || time.Since(src.slowAt) > slowEvery {
-		src.agents = agents.LoadDirs(filepath.Join(src.ClaudeHome, "agents"), filepath.Join(cwd, ".claude", "agents"))
-		src.hooks = agents.LoadHooks(filepath.Join(src.ClaudeHome, "settings.json"))
-		src.agCwd, src.slowAt = cwd, time.Now()
+	key := home + "\x00" + cwd
+	e := src.slowC[key]
+	if e == nil || time.Since(e.at) > slowEvery {
+		e = &slowEntry{
+			agents: agents.LoadDirs(filepath.Join(home, "agents"), filepath.Join(cwd, ".claude", "agents")),
+			hooks:  agents.LoadHooks(filepath.Join(home, "settings.json")),
+			at:     time.Now(),
+		}
+		src.slowC[key] = e
 	}
-	return src.agents, src.hooks
+	return e.agents, e.hooks
 }
 
 // allSessions returns every known session, cached for 2 s.
@@ -156,7 +175,7 @@ func (src *Source) Dashboard(id string) Dashboard { return src.Build(state.Load(
 
 // Build builds the view model for an already reduced session.
 func (src *Source) Build(s state.Session) Dashboard {
-	ag, hooks := src.slow(s.Cwd)
+	ag, hooks := src.slow(src.homeOf(s), s.Cwd)
 	od := src.orcaFor(s)
 	all := src.allSessions()
 	merged := make([]state.Session, 0, len(all)+1)

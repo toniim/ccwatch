@@ -29,6 +29,7 @@ type SessionInfo struct {
 	ID        string `json:"id"`
 	Cwd       string `json:"cwd"`
 	Model     string `json:"model"`
+	Profile   string `json:"profile"` // short profile name, "" for the default profile
 	Ended     bool   `json:"ended"`
 	Subagents int    `json:"subagents"`
 	Live      int    `json:"live"`
@@ -119,7 +120,7 @@ func (s *Server) listSessions() []SessionInfo {
 	rels := s.Src.Relations(loaded)
 	for i, id := range ids {
 		ss := loaded[i]
-		info := SessionInfo{ID: id, Cwd: ss.Cwd, Model: view.ShortModel(ss.Model), Ended: ss.Ended, Subagents: len(ss.Subagents), Live: ss.Live()}
+		info := SessionInfo{ID: id, Cwd: ss.Cwd, Model: view.ShortModel(ss.Model), Profile: ss.Profile, Ended: ss.Ended, Subagents: len(ss.Subagents), Live: ss.Live()}
 		info.State, info.Label = sessionLabel(id, ss)
 		rel := rels[id]
 		info.Role, info.Parent, info.Run = rel.Role, rel.Parent, rel.Run
@@ -248,7 +249,7 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 }
 
 // sessionLabel builds the picker text, state first so a narrow select never cuts it:
-// "<id8> · <ended|active|running> · <agents> · <model> · <dir>".
+// "<id8> · <ended|active|running> · <agents> · <model> · [profile ·] <dir>".
 func sessionLabel(id string, ss state.Session) (string, string) {
 	total, live := len(ss.Subagents), ss.Live()
 	st := "active"
@@ -277,6 +278,9 @@ func sessionLabel(id string, ss state.Session) (string, string) {
 		dir = dir[i+1:]
 	}
 	parts := []string{id, st, agents, model}
+	if ss.Profile != "" {
+		parts = append(parts, ss.Profile)
+	}
 	if dir != "" {
 		parts = append(parts, dir)
 	}

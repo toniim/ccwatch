@@ -120,6 +120,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 #tree .row.ended-row .dir { color: var(--muted); }
 #tree .model { flex: none; width: 10ch; color: var(--blue); overflow: hidden; text-overflow: ellipsis; }
 #tree .badge { flex: none; color: var(--orange); }
+#main-title .prof-name { text-transform: none; }
+#tree .prof { flex: none; color: var(--purple); border: 1px solid var(--purple); border-radius: 3px; padding: 0 4px; font-size: 0.85em; }
 #tree .sid { flex: none; width: 8ch; color: var(--muted); }
 #side.narrow .sid { display: none; }
 #tree .runnode .sel { color: var(--purple); }

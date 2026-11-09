@@ -201,7 +201,11 @@ func mainPanel(d view.Dashboard, o Options, inner int) []string {
 		model = "MAIN"
 	}
 	var b []string
-	b = append(b, center(purple.Render(strong.Render(model+" · main session")), inner))
+	head := model + " · main session"
+	if d.Profile != "" {
+		head += " · " + d.Profile
+	}
+	b = append(b, center(purple.Render(strong.Render(head)), inner))
 	st := d.State
 	if st == "orchestrating" || st == "working" {
 		st += " [ " + spin(o.Frame) + " ]"

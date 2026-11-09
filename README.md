@@ -376,7 +376,7 @@ Everything stays on your machine, in the state directory: `$CCWATCH_STATE`, else
 
 | Path | Written by | Contains |
 |---|---|---|
-| `events/<session>.jsonl` | `ccwatch hook` | A trimmed copy of each hook payload: session id, `cwd`, event name, ids. Your prompt **in full** (bounded only by the 1 MiB hook stdin cap) with its kind and length; the views show a one-line preview, and the web view fetches the full text from `/api/prompt` only when you expand a row (an Orca dispatch wrapper only on request). The assistant's last message, subagent prompts, tool results and errors **truncated to 300 characters** (the first part of the text); Bash commands up to 1000 characters. |
+| `events/<session>.jsonl` | `ccwatch hook` | A trimmed copy of each hook payload: session id, `cwd`, event name, ids. Your prompt **in full** (bounded only by the 1 MiB hook stdin cap) with its kind and length; the views show a one-line preview, and the web view fetches the full text from `/api/prompt` only when you expand a row (an Orca dispatch wrapper only on request). The assistant's last message, subagent prompts, tool results and errors **truncated to 300 characters** (the first part of the text); Bash commands up to 1000 characters. For a session run under another Claude profile (`CLAUDE_CONFIG_DIR`): that profile's short name and its config dir relative to `$HOME` (only when it is under `$HOME`), used to tag the session and read that profile's `settings.json` and agents; no full path or other variable is stored. |
 | `otel/<session>.jsonl` | `ccwatch serve` | Only `api_request` and `subagent_completed` records (model, token counts, cost, `agent_id`, `query_source`, request ids). Attributes starting with `user.`, `organization.` or `anthropic.` (identity of the signed-in user) are dropped before writing. Files are created with mode 0644. |
 | `ctx/<session>.json` | `ccwatch line` | The context window size. |
 | `workers.json` | `ccwatch` | A short-lived cache of the Orca worker list. |
@@ -400,6 +400,7 @@ Environment variables ccwatch reads: `CCWATCH_STATE`, `XDG_STATE_HOME`, `CCWATCH
 ## Troubleshooting
 
 - **No tokens or costs shown.** Either `ccwatch serve` is not running, or the session was started before the telemetry environment was set. Check `curl -s http://127.0.0.1:4319/api/sessions`, then restart the Claude Code session. Hooks hot-reload; environment variables do not.
+- **Sessions from another profile never show up.** A launcher that sets `CLAUDE_CONFIG_DIR` makes Claude Code read `$CLAUDE_CONFIG_DIR/settings.json` instead of `~/.claude/settings.json`. Add the same hooks and telemetry `env` block to that profile's `settings.json`; its sessions then appear tagged with the profile name.
 - **`window unknown`.** The status line is not wired to `ccwatch line` (step 4), or the session has not rendered a status line yet.
 - **The page looks unstyled or old after an update.** Hard reload the page (Ctrl/Cmd+Shift+R).
 - **Orca panels are empty under systemd.** The service cannot find the `orca` CLI: add its directory to `Environment=PATH=` or set `CCWATCH_ORCA`.

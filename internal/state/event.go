@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 // Dir returns the state directory: $CCWATCH_STATE or ${XDG_STATE_HOME:-~/.local/state}/ccwatch.
@@ -84,6 +85,22 @@ type Event struct {
 	LastAssistantChars int              `json:"last_assistant_message_chars,omitempty"` // rune length before truncation
 	BackgroundTasks    []BackgroundTask `json:"background_tasks,omitempty"`
 	PermissionMode     string           `json:"permission_mode,omitempty"`
+	Profile            string           `json:"profile,omitempty"`    // short profile name derived from $CLAUDE_CONFIG_DIR ("" = default profile)
+	ConfigDir          string           `json:"config_dir,omitempty"` // that config dir relative to $HOME, only when it is under $HOME
+}
+
+// ValidConfigDir reports whether rel is a safe $HOME-relative config dir: not
+// empty, not absolute, no ".." element, already clean.
+func ValidConfigDir(rel string) bool {
+	if rel == "" || filepath.IsAbs(rel) || filepath.Clean(rel) != rel || rel == "." {
+		return false
+	}
+	for _, p := range strings.Split(rel, "/") {
+		if p == ".." {
+			return false
+		}
+	}
+	return true
 }
 
 // Record is one flattened line of otel/<session.id>.jsonl.

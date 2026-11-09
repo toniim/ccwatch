@@ -67,6 +67,7 @@ type Dashboard struct {
 	SessionID   string           `json:"sessionId"`
 	Cwd         string           `json:"cwd"`
 	Model       string           `json:"model"`
+	Profile     string           `json:"profile"`
 	Ended       bool             `json:"ended"`
 	State       string           `json:"state"` // orchestrating | working | idle
 	CostUSD     float64          `json:"costUsd"`
@@ -158,7 +159,7 @@ func typeKey(t string) string {
 // Build assembles the dashboard.
 func Build(s state.Session, ext Ext) Dashboard {
 	d := Dashboard{
-		SessionID: s.ID, Cwd: s.Cwd, Model: ShortModel(s.Model), Ended: s.Ended, CostUSD: s.CostUSD,
+		SessionID: s.ID, Cwd: s.Cwd, Model: ShortModel(s.Model), Profile: s.Profile, Ended: s.Ended, CostUSD: s.CostUSD,
 		Ctx: s.MainCtx, CtxSize: s.CtxWindow, Subagents: len(s.Subagents), LiveAgents: s.Live(),
 		TestsPass: s.TestsPass, TestsFail: s.TestsFail, ToolFails: s.ToolFailures,
 		Leverage: s.Leverage(), Run: ext.Run, WorkerLine: ext.WorkerLine, NestedLine: ext.NestedLine, ProcessedTk: s.Processed, PeakCtx: s.PeakCtx,
