@@ -349,7 +349,7 @@ tests 1/1 · tool failures 0 · t table · tab next · q quit
 
 **Web view**
 
-Open <http://127.0.0.1:4319/>. It follows the latest session by default; untick "follow latest" to pick another, and switch between the dashboard and the table with the buttons at the top. It updates live (server-sent events).
+Open <http://127.0.0.1:4319/>. Sessions are listed as a tree in the left sidebar: coordinators with their Orca Run and worker sessions, `claude -p` sessions nested under the session that started them, standalone sessions, and an "ended" group. Click a node to pin that session (`?session=<id>` in the URL); "follow latest" at the top of the sidebar jumps to the newest one. Hide or show the sidebar with the "sessions" button or the `[` key, and drag its right edge to resize it (double-click resets); below 900 px it opens as a drawer. Switch between the dashboard and the table with the buttons at the top. It updates live (server-sent events).
 
 | Dashboard | Orca Run | Table | Mobile (390 px) |
 |---|---|---|---|
