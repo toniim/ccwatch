@@ -56,6 +56,7 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage may be unavailable */ } },
 };
+let showTools = store.get("ccwatch.tools") !== "0"; // tool rows in the session log
 let expanded = {};  // node key -> explicit expand (true) / collapse (false); unset = default
 try { expanded = JSON.parse(store.get("ccwatch.tree") || "{}") || {}; } catch (e) { expanded = {}; }
 const isOpen = (key, dflt) => key in expanded ? expanded[key] : dflt;
@@ -300,7 +301,28 @@ function renderAgents(d) {
   b.append(h("div", { class: "muted" }, "ccwatch hooks: ", d.ccwatchHooks ? "present" : "not in settings.json"));
 }
 
+// ---- what a session / agent is doing now ----
+const secs = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return s < 60 ? s + "s" : Math.floor(s / 60) + "m" + String(s % 60).padStart(2, "0") + "s"; };
+const dur = (ms) => ms < 1000 ? ms + "ms" : ms < 10000 ? (ms / 1000).toFixed(1) + "s" : secs(ms);
+// paintNow writes "now: Edit app.js · 4s" (running) or "last: Edit app.js ✓ 4.2s" (muted, finished) into el.
+function paintNow(el) {
+  const a = el._act;
+  if (!a) { el.hidden = true; return; }
+  el.hidden = false;
+  el.classList.toggle("idle", !a.running);
+  el.textContent = "";
+  if (a.running) {
+    const t = Date.parse(a.start);
+    el.append("now: " + a.text + (a.more ? " (+" + a.more + " more)" : ""));
+    if (t) el.append(" · ", h("span", { class: "el" }, secs(Date.now() - t)));
+  } else {
+    el.append("last: " + a.text + (a.failed ? " ✗" : " ✓") + (a.durMs ? " " + dur(a.durMs) : ""));
+  }
+}
+function setNow(el, act) { el._act = act || null; paintNow(el); }
+
 function renderMain(d) {
+  setNow($("now"), d.now);
   $("main-title").textContent = (d.model || "main") + " · main session";
   if (d.profile) $("main-title").append(" · ", h("span", { class: "prof-name" }, d.profile));
   const live = d.state === "orchestrating" || d.state === "working";
@@ -331,7 +353,8 @@ function renderLanes(box, lanes) {
         h("div", {}, h("div", { class: "name" }, l.name), h("div", { class: "model" })),
         h("div", { class: "slots" }),
         h("div", { class: "pct" }, h("div", { class: "bar" }, h("i")), h("span")),
-        h("div", { class: "status" }));
+        h("div", { class: "status" }),
+        h("div", { class: "now nowline", hidden: "" }));
       box.append(el);
     }
     el.querySelector(".name").textContent = l.name;
@@ -342,8 +365,9 @@ function renderLanes(box, lanes) {
       let sl = slots.children[i];
       if (!sl) { sl = h("div"); slots.append(sl); }
       sl.className = "slot " + (s === "launched" ? "" : s);
-      sl.title = s;
+      sl.title = (l.titles && l.titles[i]) || s;
     });
+    setNow(el.querySelector(".now"), l.now);
     el.querySelector(".bar > i").style.width = l.pct + "%";
     el.querySelector(".pct span").textContent = l.pct + "%";
     el.querySelector(".status").textContent = "○ " + l.status;
@@ -399,11 +423,33 @@ function fillRow(sid, r, txt) {
   loadPrompt(sid, r.key, raw).then((t) => { if (body.isConnected) body.textContent = t; });
 }
 
+function toolRows(sid, r) { // a grouped row: collapsed to "N tool calls", expands to its calls
+  const gk = sid + "|g|" + r.ts + "|" + r.who;
+  const txt = h("span", { class: "txt" }, r.text + (r.count > (r.items || []).length ? " (last " + r.items.length + " listed)" : ""));
+  const row = h("div", { class: "row tools" + (openRows.has(gk) ? " open" : "") },
+    h("span", { class: "t" }, clock(r.ts)), h("span", { class: "who", title: r.who }, r.who), txt);
+  const fill = () => {
+    row.querySelector(".sub")?.remove();
+    if (!openRows.has(gk)) return;
+    const sub = h("div", { class: "sub" });
+    for (const it of r.items || []) sub.append(h("div", { class: it.tag }, h("span", { class: "t" }, clock(it.ts)), h("span", { class: "txt" }, it.text)));
+    txt.append(sub);
+  };
+  fill();
+  row.addEventListener("click", () => {
+    if (openRows.has(gk)) { openRows.delete(gk); row.classList.remove("open"); } else { openRows.add(gk); row.classList.add("open"); }
+    fill();
+  });
+  return row;
+}
+
 function renderLog(d) {
   const box = $("log");
   box.textContent = "";
-  if (!d.log.length) box.append(h("div", { class: "empty" }, "no events yet"));
-  d.log.forEach((r, i) => {
+  const rows = showTools ? d.log : d.log.filter((r) => r.kind !== "tool" && r.kind !== "tools");
+  if (!rows.length) box.append(h("div", { class: "empty" }, "no events yet"));
+  rows.forEach((r, i) => {
+    if (r.kind === "tools") { box.append(toolRows(d.sessionId, r)); return; }
     const key = d.sessionId + "|" + r.ts + "|" + r.who + "|" + r.text + "|" + r.tag;
     const isNew = !firstLog && !seenLog.has(key);
     seenLog.add(key);
@@ -446,6 +492,19 @@ function setView(v) {
   $("v-table").classList.toggle("on", v === "table");
 }
 
+function syncTools() {
+  const b = $("tools-toggle");
+  b.classList.toggle("on", showTools);
+  b.setAttribute("aria-pressed", String(showTools));
+}
+syncTools();
+$("tools-toggle").addEventListener("click", () => {
+  showTools = !showTools;
+  store.set("ccwatch.tools", showTools ? "1" : "0");
+  syncTools();
+  if (lastData) renderLog(lastData);
+});
+
 $("v-dash").addEventListener("click", () => setView("dash"));
 $("v-table").addEventListener("click", () => setView("table"));
 $("follow").addEventListener("change", (e) => {
@@ -456,6 +515,7 @@ $("follow").addEventListener("change", (e) => {
 setInterval(() => {
   spinN++;
   for (const n of document.querySelectorAll(".spin")) if (n.textContent.trim()) n.textContent = SPIN[spinN % 4];
+  for (const n of document.querySelectorAll(".nowline")) if (n._act && n._act.running) paintNow(n);
   for (const n of document.querySelectorAll("#plan .mk")) if (n.dataset.mark === "|") n.textContent = "[" + SPIN[spinN % 4] + "]";
 }, 150);
 

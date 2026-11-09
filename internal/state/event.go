@@ -71,6 +71,7 @@ type Event struct {
 	Reason             string           `json:"reason,omitempty"`
 	ToolName           string           `json:"tool_name,omitempty"`
 	ToolUseID          string           `json:"tool_use_id,omitempty"`
+	Target             string           `json:"target,omitempty"` // allowlisted summary of what the tool works on, see hook.Target
 	DurationMs         int64            `json:"duration_ms,omitempty"`
 	ToolInput          *ToolInput       `json:"tool_input,omitempty"`
 	ToolResponse       *ToolResponse    `json:"tool_response,omitempty"`

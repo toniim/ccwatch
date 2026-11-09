@@ -77,7 +77,7 @@ func TestWebAPIs(t *testing.T) {
 		t.Fatalf("state: %d", code)
 	}
 	if d.SessionID != realisticID || len(d.Lanes) != 1 || d.Lanes[0].Name != "Explore" || d.Lanes[0].Total != 3 || d.Lanes[0].Pct != 100 ||
-		len(d.Plan) != 1 || d.Plan[0].Detail != "Explore x3" || len(d.Agents) != 1 || d.Agents[0].File != "explore.md" || d.Back.Processed <= d.Back.Received || len(d.Log) != 11 || len(d.Table) != 3 {
+		len(d.Plan) != 1 || d.Plan[0].Detail != "Explore x3" || len(d.Agents) != 1 || d.Agents[0].File != "explore.md" || d.Back.Processed <= d.Back.Received || nonToolRows(d.Log) != 11 || len(d.Table) != 3 {
 		t.Errorf("state payload: %+v", d)
 	}
 	// the API serves exactly what the TUI model builds

@@ -26,6 +26,14 @@ func TestHookProcessTiming(t *testing.T) {
 		t.Fatal(err)
 	}
 	payloads := strings.Split(strings.TrimSpace(string(payloadBytes)), "\n")
+	// PreToolUse / PostToolUse fire on every tool call: add the same calls with a large Edit body
+	body := strings.Repeat("neutral line of file content\\n", 3000) // ~90 KB inside the payload
+	for _, ev := range []string{"PreToolUse", "PostToolUse"} {
+		payloads = append(payloads,
+			`{"session_id":"sess-timing","cwd":"/work/app","hook_event_name":"`+ev+`","tool_name":"Edit","tool_use_id":"tu-1","duration_ms":7,`+
+				`"tool_input":{"file_path":"/work/app/main.go","old_string":"`+body+`","new_string":"`+body+`"}}`,
+			`{"session_id":"sess-timing","cwd":"/work/app","hook_event_name":"`+ev+`","tool_name":"Read","tool_use_id":"tu-2","tool_input":{"file_path":"/work/app/main.go"}}`)
+	}
 	env := append(os.Environ(), "CCWATCH_STATE="+filepath.Join(tmp, "state"))
 
 	const n = 100
@@ -44,6 +52,19 @@ func TestHookProcessTiming(t *testing.T) {
 	t.Logf("ccwatch hook process time over %d runs: min %v median %v p95 %v max %v", n, d[0], d[n/2], d[n*95/100], d[n-1])
 	if d[n/2] > 10*time.Millisecond {
 		t.Errorf("median %v exceeds 10ms", d[n/2])
+	}
+	var size, lines int64
+	entries, _ := os.ReadDir(filepath.Join(tmp, "state", "events"))
+	for _, ent := range entries {
+		b, _ := os.ReadFile(filepath.Join(tmp, "state", "events", ent.Name()))
+		size += int64(len(b))
+		lines += int64(strings.Count(string(b), "\n"))
+	}
+	if lines > 0 {
+		t.Logf("events file growth: %d lines, %d bytes, %d bytes per event", lines, size, size/lines)
+		if size/lines > 1500 {
+			t.Errorf("%d bytes per event is not small", size/lines)
+		}
 	}
 	if _, err := exec.Command(bin, "hook").Output(); err != nil { // empty stdin must still exit 0
 		t.Errorf("empty stdin exit: %v", err)

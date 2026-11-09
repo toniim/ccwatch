@@ -23,19 +23,25 @@ type Subagent struct {
 	Summary       string
 	Started       time.Time
 	PromptID      string
-	Requests      int  // api_requests seen from OTLP
-	Failed        bool // the Agent tool call itself failed
+	Requests      int   // api_requests seen from OTLP
+	Failed        bool  // the Agent tool call itself failed
+	Now           *Tool // its in-flight tool call (latest PreToolUse without a Post), nil when none
+	Last          *Tool // its last finished tool call
 }
 
 // LogEntry is one row of the session log.
 type LogEntry struct {
-	TS        time.Time `json:"ts"`
-	Kind      string    `json:"kind"` // you | agent | test | model | notice
-	Who       string    `json:"who"`
-	Text      string    `json:"text"`
-	Tag       string    `json:"tag,omitempty"`
-	Key       string    `json:"key,omitempty"`        // prompt rows: p<event index>, the handle of /api/prompt
-	FullChars int       `json:"full_chars,omitempty"` // prompt rows: rune length of the display text when Text is only a preview
+	TS        time.Time  `json:"ts"`
+	Kind      string     `json:"kind"` // you | agent | test | model | notice | tool | tools
+	Who       string     `json:"who"`
+	Text      string     `json:"text"`
+	Tag       string     `json:"tag,omitempty"`
+	Key       string     `json:"key,omitempty"`        // prompt rows: p<event index>, the handle of /api/prompt
+	FullChars int        `json:"full_chars,omitempty"` // prompt rows: rune length of the display text when Text is only a preview
+	Actor     string     `json:"actor,omitempty"`      // tool rows: agent_id of the subagent, "" = main session
+	DurMs     int64      `json:"dur_ms,omitempty"`     // tool rows: duration once finished
+	Count     int        `json:"count,omitempty"`      // tools rows: number of calls grouped
+	Items     []LogEntry `json:"items,omitempty"`      // tools rows: the grouped tool rows (the last ones)
 }
 
 // Session is the reduced view of one Claude Code session.
@@ -62,6 +68,9 @@ type Session struct {
 	CtxWindow    int64     // context_window_size recorded by `ccwatch line` (0 = unknown)
 	StartTS      time.Time // earliest SessionStart (else first event)
 	RunIDs       []string  // Orca run ids this session created or listed (Bash stdout)
+	Now          *Tool     // main session's in-flight tool call (latest PreToolUse without a Post)
+	Last         *Tool     // main session's last finished tool call
+	Recent       []Tool    // the last RecentTools finished tool calls of every actor, oldest first
 	Log          []LogEntry
 }
 
@@ -205,6 +214,20 @@ func Build(events []Event, otel []Record) Session {
 		}
 	}
 
+	open := map[string]*Tool{}                  // tool_use_id -> call without a Post yet
+	openRow := map[string]int{}                 // tool_use_id -> its row in s.Log
+	lastBy := map[string]*Tool{}                // actor -> last finished call
+	finished := map[string]bool{}               // tool_use_id -> its Post was seen (two hook registrations deliver every event twice)
+	closeOpen := func(match func(*Tool) bool) { // the turn / agent ended: its unfinished calls will never get a Post
+		for id, t := range open {
+			if match(t) {
+				s.Log[openRow[id]].Tag = "end"
+				delete(open, id)
+				delete(openRow, id)
+			}
+		}
+	}
+
 	sawStart := false
 	for ei, e := range events {
 		if s.ID == "" {
@@ -242,13 +265,22 @@ func Build(events []Event, otel []Record) Session {
 			s.Ended = false // a resumed session starts again
 		case "SessionEnd":
 			s.Ended = true
+			closeOpen(func(*Tool) bool { return true })
+		case "PreToolUse":
+			if e.ToolUseID != "" && e.ToolName != "" && open[e.ToolUseID] == nil && !finished[e.ToolUseID] {
+				t := &Tool{ID: e.ToolUseID, Actor: e.AgentID, Name: e.ToolName, Target: e.Target, Start: ts}
+				open[t.ID], openRow[t.ID] = t, len(s.Log)
+				s.Log = append(s.Log, toolEntry(t))
+			}
 		case "UserPromptSubmit":
 			s.Working = true
+			closeOpen(func(t *Tool) bool { return t.Actor == "" })
 			if e.Prompt != "" || e.PromptKind != "" || e.PromptChars > 0 {
 				s.Log = append(s.Log, promptEntry(ts, e, ei))
 			}
 		case "Stop":
 			s.Working = false
+			closeOpen(func(t *Tool) bool { return t.Actor == "" })
 			if t := FirstLine(e.LastAssistantMsg); t != "" {
 				s.Log = append(s.Log, LogEntry{TS: ts, Kind: "model", Text: t})
 			}
@@ -265,6 +297,7 @@ func Build(events []Event, otel []Record) Session {
 			a := get(e.AgentID)
 			a.Type = pick(a.Type, e.AgentType)
 			a.Running = false
+			closeOpen(func(t *Tool) bool { return t.Actor == e.AgentID })
 			a.Summary = FirstLine(e.LastAssistantMsg)
 			s.Log = append(s.Log, LogEntry{TS: ts, Kind: "agent", Who: a.Type + " " + id4(a.ID), Text: a.Summary, Tag: "done"})
 			a.ReturnedChars = int64(e.LastAssistantChars)
@@ -272,6 +305,38 @@ func Build(events []Event, otel []Record) Session {
 				a.ReturnedChars = int64(utf8.RuneCountInString(e.LastAssistantMsg))
 			}
 		case "PostToolUse", "PostToolUseFailure":
+			if e.ToolName != "" && !(e.ToolUseID != "" && finished[e.ToolUseID]) {
+				if e.ToolUseID != "" {
+					finished[e.ToolUseID] = true
+				}
+				t := open[e.ToolUseID]
+				row, paired := openRow[e.ToolUseID]
+				if t == nil {
+					t = &Tool{ID: e.ToolUseID, Actor: e.AgentID, Name: e.ToolName, Start: ts}
+					if e.DurationMs > 0 {
+						t.Start = ts.Add(-time.Duration(e.DurationMs) * time.Millisecond)
+					}
+				}
+				t.Target = pick(e.Target, t.Target)
+				t.Done, t.Failed, t.DurMs = true, e.Name == "PostToolUseFailure", e.DurationMs
+				if t.DurMs == 0 && paired && !ts.IsZero() && ts.After(t.Start) {
+					t.DurMs = ts.Sub(t.Start).Milliseconds()
+				}
+				if paired {
+					s.Log[row] = toolEntry(t)
+				} else {
+					le := toolEntry(t)
+					le.TS = ts // no Pre seen: the row sits where the Post arrived
+					s.Log = append(s.Log, le)
+				}
+				delete(open, e.ToolUseID)
+				delete(openRow, e.ToolUseID)
+				lastBy[t.Actor] = t
+				s.Recent = append(s.Recent, *t)
+				if len(s.Recent) > RecentTools {
+					s.Recent = s.Recent[len(s.Recent)-RecentTools:]
+				}
+			}
 			if e.Name == "PostToolUseFailure" && e.ToolName == "Agent" {
 				a := &Subagent{ID: "failed-" + e.ToolUseID, Failed: true, PromptID: e.PromptID, Started: ts}
 				if e.ToolInput != nil {
@@ -361,9 +426,28 @@ func Build(events []Event, otel []Record) Session {
 		}
 	}
 
+	nowBy := map[string]*Tool{}
+	for _, t := range open {
+		if n := nowBy[t.Actor]; n == nil || t.Start.After(n.Start) {
+			nowBy[t.Actor] = t
+		}
+	}
+	s.Now, s.Last = nowBy[""], lastBy[""]
+	for _, a := range s.Subagents {
+		a.Now, a.Last = nowBy[a.ID], lastBy[a.ID]
+	}
 	for i := range s.Log {
-		if s.Log[i].Kind == "model" {
+		switch s.Log[i].Kind {
+		case "model":
 			s.Log[i].Who = pick(s.Model, "model")
+		case "tool":
+			s.Log[i].Who = "main"
+			if id := s.Log[i].Actor; id != "" {
+				s.Log[i].Who = id4(id)
+				if a := byID[id]; a != nil {
+					s.Log[i].Who = pick(a.Type, "agent") + " " + id4(id)
+				}
+			}
 		}
 	}
 	var returnedChars int64

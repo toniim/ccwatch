@@ -13,8 +13,11 @@ import (
 	"github.com/toniim/ccwatch/internal/workers"
 )
 
-// LogRows is the number of session-log rows kept.
+// LogRows is the number of session-log rows kept, not counting tool rows.
 const LogRows = 12
+
+// maxLogRows bounds the rows of the log including grouped tool rows.
+const maxLogRows = 40
 
 // Ext is everything outside the event files that the dashboard joins.
 type Ext struct {
@@ -45,13 +48,34 @@ type PlanItem struct {
 
 // Lane is one lane of the Task-tool section.
 type Lane struct {
-	Name   string   `json:"name"`
-	Model  string   `json:"model"`
-	Slots  []string `json:"slots"` // launched | running | done | failed
-	Done   int      `json:"done"`
-	Total  int      `json:"total"`
-	Pct    int      `json:"pct"`
-	Status string   `json:"status"` // queued | N running | done
+	Name   string    `json:"name"`
+	Model  string    `json:"model"`
+	Slots  []string  `json:"slots"` // launched | running | done | failed
+	Done   int       `json:"done"`
+	Total  int       `json:"total"`
+	Pct    int       `json:"pct"`
+	Status string    `json:"status"`        // queued | N running | done
+	Titles []string  `json:"titles"`        // tooltip per slot: its state, plus the running agent's current tool
+	Now    *Activity `json:"now,omitempty"` // what the most recently active running agent of the lane is doing
+}
+
+// Activity is what a session or agent is doing now, or did last. The page ticks
+// the elapsed time itself from Start, so the payload only changes with the events.
+type Activity struct {
+	Text    string `json:"text"`
+	Start   string `json:"start,omitempty"` // RFC3339Nano
+	Running bool   `json:"running"`
+	DurMs   int64  `json:"durMs,omitempty"` // finished calls
+	Failed  bool   `json:"failed,omitempty"`
+	More    int    `json:"more,omitempty"` // lanes: further running agents
+}
+
+func activityOf(t *state.Tool, running bool) *Activity {
+	if t == nil {
+		return nil
+	}
+	return &Activity{Text: state.ToolLabel(t.Name, t.Target), Start: t.Start.Format(time.RFC3339Nano),
+		Running: running, DurMs: t.DurMs, Failed: t.Failed}
 }
 
 // Back is the "back to main" section.
@@ -69,7 +93,8 @@ type Dashboard struct {
 	Model       string           `json:"model"`
 	Profile     string           `json:"profile"`
 	Ended       bool             `json:"ended"`
-	State       string           `json:"state"` // orchestrating | working | idle
+	State       string           `json:"state"`         // orchestrating | working | idle
+	Now         *Activity        `json:"now,omitempty"` // main session: the running tool call, or the last finished one when idle
 	CostUSD     float64          `json:"costUsd"`
 	Ctx         int64            `json:"ctx"`
 	CtxSize     int64            `json:"ctxSize"`
@@ -119,7 +144,7 @@ func slotOf(a *state.Subagent) string {
 	switch {
 	case a.Failed:
 		return "failed"
-	case a.Running && a.Requests == 0:
+	case a.Running && a.Requests == 0 && a.Now == nil && a.Last == nil: // no api_request and no tool call seen yet
 		return "launched"
 	case a.Running:
 		return "running"
@@ -194,9 +219,27 @@ func Build(s state.Session, ext Ext) Dashboard {
 		var models []string
 		running, failed, launched := 0, 0, 0
 		allLaunched := true
+		var cur *state.Tool // the most recently started in-flight call among the lane's running agents
 		for _, a := range list {
 			sl := slotOf(a)
 			l.Slots = append(l.Slots, sl)
+			title := sl
+			if a.Running && a.Now != nil {
+				title += " · " + state.ToolLabel(a.Now.Name, a.Now.Target)
+				if cur != nil {
+					l.Now.More++
+				}
+				if cur == nil || a.Now.Start.After(cur.Start) {
+					more := 0
+					if l.Now != nil {
+						more = l.Now.More
+					}
+					cur = a.Now
+					l.Now = activityOf(cur, true)
+					l.Now.More = more
+				}
+			}
+			l.Titles = append(l.Titles, title)
 			models = append(models, a.Model)
 			switch sl {
 			case "done":
@@ -314,6 +357,12 @@ func Build(s state.Session, ext Ext) Dashboard {
 		d.State = "idle"
 	}
 
+	if s.Now != nil && d.State != "idle" {
+		d.Now = activityOf(s.Now, true)
+	} else {
+		d.Now = activityOf(s.Last, false)
+	}
+
 	d.Back = Back{Processed: s.Processed, Received: s.ReturnedEst}
 	max := s.Processed
 	if s.ReturnedEst > max {
@@ -321,10 +370,7 @@ func Build(s state.Session, ext Ext) Dashboard {
 	}
 	d.Back.ProcFrac, d.Back.RecvFrac = frac(s.Processed, max), frac(s.ReturnedEst, max)
 
-	d.Log = s.Log
-	if len(d.Log) > LogRows {
-		d.Log = d.Log[len(d.Log)-LogRows:]
-	}
+	d.Log = trimLog(state.GroupTools(s.Log))
 	if d.Log == nil {
 		d.Log = []state.LogEntry{}
 	}
@@ -436,6 +482,25 @@ func promptPlan(s state.Session) []PlanItem {
 		items = append(items, PlanItem{Mark: mark, Text: text, Detail: strings.Join(parts, " + ")})
 	}
 	return items
+}
+
+// trimLog keeps the rows from the LogRows-th last non-tool row on, with the tool
+// rows between them, and never more than maxLogRows rows.
+func trimLog(rows []state.LogEntry) []state.LogEntry {
+	n, start := 0, 0
+	for i := len(rows) - 1; i >= 0; i-- {
+		if rows[i].Kind != "tool" && rows[i].Kind != "tools" {
+			if n++; n == LogRows {
+				start = i
+				break
+			}
+		}
+	}
+	rows = rows[start:]
+	if len(rows) > maxLogRows {
+		rows = rows[len(rows)-maxLogRows:]
+	}
+	return rows
 }
 
 // OrcaData is what the Orca CLI told us, gathered outside the pure join.

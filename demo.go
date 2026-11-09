@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var demoEvents = []string{"SessionStart", "UserPromptSubmit", "SubagentStart", "SubagentStop", "PostToolUse", "PostToolUseFailure", "Stop", "SessionEnd"}
+var demoEvents = []string{"SessionStart", "UserPromptSubmit", "SubagentStart", "SubagentStop", "PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop", "SessionEnd"}
 
 // demoSettings returns the settings JSON for `claude --settings`.
 func demoSettings(exe string) string {

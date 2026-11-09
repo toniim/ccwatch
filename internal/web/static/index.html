@@ -38,6 +38,7 @@
     <div class="panel purple dashed" id="main">
       <h2 id="main-title" class="center">main session</h2>
       <div id="main-state" class="center muted"></div>
+      <div id="now" class="nowline center" hidden></div>
       <div id="worker-line" class="muted"></div>
       <div id="run" class="muted"></div>
       <ul id="plan"></ul>
@@ -60,7 +61,7 @@
   </section>
 
   <section class="panel grey" id="logbox">
-    <h2>session log <span class="tag" id="log-tag">[ stream: live ]</span></h2>
+    <h2>session log <span class="tag" id="log-tag">[ stream: live ]</span> <button id="tools-toggle" class="tgl on" type="button" aria-pressed="true" title="show / hide tool rows">tools</button></h2>
     <div id="log"></div>
   </section>
 </main>

@@ -55,6 +55,11 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 .lane .pct { display: flex; align-items: center; gap: 8px; }
 .lane .pct span { width: 4ch; text-align: right; }
 .lane .status { grid-column: 2 / 4; color: var(--muted); }
+.lane .now { grid-column: 2 / 4; }
+.nowline { color: var(--fg); overflow-wrap: anywhere; }
+.nowline.idle { color: var(--muted); }
+.nowline .el { color: var(--orange); }
+#now { margin-top: 2px; }
 @keyframes pulse { 50% { opacity: .45; } }
 
 #back { margin-top: 14px; }
@@ -73,6 +78,16 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 #log .row .full { white-space: pre-wrap; user-select: text; margin-top: 2px; }
 #log .row .wrap-toggle { float: right; background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: .85em; padding: 0 6px; margin-left: 8px; cursor: pointer; }
 #log .row.notice, #log .row.notice .who { color: var(--muted); }
+#log .row.tool, #log .row.tools, #log .row.tool .who, #log .row.tools .who { color: var(--muted); }
+#log .row.tool.run .txt { color: var(--fg); }
+#log .row.tool.fail .txt { color: var(--red); }
+#log .row.tools { cursor: pointer; }
+#log .row.tools > .txt::before { content: "▸ "; } #log .row.tools.open > .txt::before { content: "▾ "; }
+#log .row .sub { margin-top: 2px; }
+#log .row .sub div { display: grid; grid-template-columns: 9ch 1fr; gap: 12px; }
+#log .row .sub .fail { color: var(--red); }
+#tools-toggle { font: inherit; font-size: .8em; background: none; border: 1px solid var(--line); color: var(--muted); padding: 0 8px; border-radius: 4px; cursor: pointer; margin-left: 6px; }
+#tools-toggle.on { color: var(--fg); border-color: var(--purple); }
 #log .row.new { animation: fade .9s ease-out; }
 @keyframes fade { from { background: rgba(169,139,255,.25); } to { background: transparent; } }
 

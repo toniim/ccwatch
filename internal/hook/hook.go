@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -33,13 +34,50 @@ type rawPayload struct {
 	ToolUseID        string                 `json:"tool_use_id"`
 	DurationMs       int64                  `json:"duration_ms"`
 	PermissionMode   string                 `json:"permission_mode"`
-	ToolInput        *state.ToolInput       `json:"tool_input"`
+	ToolInput        *rawInput              `json:"tool_input"`
 	ToolResponse     json.RawMessage        `json:"tool_response"`
 	Error            string                 `json:"error"`
 	IsInterrupt      bool                   `json:"is_interrupt"`
 	LastAssistantMsg string                 `json:"last_assistant_message"`
 	Prompt           string                 `json:"prompt"`
 	BackgroundTasks  []state.BackgroundTask `json:"background_tasks"`
+}
+
+// lenStr / lenBool decode a JSON string / bool and ignore any other type, so a tool whose
+// input uses an unexpected shape (an MCP tool, say) never makes the whole event unreadable.
+type (
+	lenStr  string
+	lenBool bool
+)
+
+func (l *lenStr) UnmarshalJSON(b []byte) error {
+	var s string
+	if len(b) > 0 && b[0] == '"' && json.Unmarshal(b, &s) == nil {
+		*l = lenStr(s)
+	}
+	return nil
+}
+
+func (l *lenBool) UnmarshalJSON(b []byte) error {
+	*l = string(b) == "true"
+	return nil
+}
+
+// rawInput is the part of a tool_input read from the payload. Only the fields
+// the target allowlist names are decoded; every other field (file contents,
+// old/new strings, ...) is skipped and never reaches memory or disk.
+type rawInput struct {
+	Command         lenStr  `json:"command"`
+	Description     lenStr  `json:"description"`
+	SubagentType    lenStr  `json:"subagent_type"`
+	RunInBackground lenBool `json:"run_in_background"`
+	Prompt          lenStr  `json:"prompt"`
+	FilePath        lenStr  `json:"file_path"`
+	NotebookPath    lenStr  `json:"notebook_path"`
+	Pattern         lenStr  `json:"pattern"`
+	Path            lenStr  `json:"path"`
+	URL             lenStr  `json:"url"`
+	Query           lenStr  `json:"query"`
 }
 
 type rawResponse struct {
@@ -143,12 +181,80 @@ func setPrompt(e *state.Event, prompt string) {
 	_, e.PromptKind = state.DisplayPrompt(prompt)
 }
 
+func isAgentTool(name string) bool { return name == "Agent" || name == "Task" }
+
+// relPath shortens p to be relative to cwd when it lies under it.
+func relPath(p, cwd string) string {
+	if p == "" || cwd == "" || !filepath.IsAbs(p) || !filepath.IsAbs(cwd) {
+		return p
+	}
+	r, err := filepath.Rel(cwd, p)
+	if err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+		return p
+	}
+	return r
+}
+
+// Target is the allowlisted summary of what a tool call works on; nothing else of
+// the input is ever kept. Tools outside the allowlist have no target.
+func Target(tool string, in *rawInput, cwd string) string {
+	if in == nil {
+		if strings.HasPrefix(tool, "mcp__") {
+			return mcpTarget(tool)
+		}
+		return ""
+	}
+	switch {
+	case tool == "Bash":
+		return Truncate(strings.Join(strings.Fields(Truncate(string(in.Command), 1000)), " "), maxText)
+	case tool == "Read" || tool == "Edit" || tool == "Write" || tool == "MultiEdit":
+		return Truncate(relPath(string(in.FilePath), cwd), maxText)
+	case tool == "NotebookEdit":
+		return Truncate(relPath(string(in.NotebookPath), cwd), maxText)
+	case tool == "Grep" || tool == "Glob":
+		t := Truncate(string(in.Pattern), 120)
+		if in.Path != "" {
+			t += " in " + relPath(string(in.Path), cwd)
+		}
+		return Truncate(t, maxText)
+	case tool == "WebFetch":
+		if u, err := url.Parse(string(in.URL)); err == nil && u.Host != "" {
+			return Truncate(u.Host+u.Path, 200)
+		}
+		return ""
+	case tool == "WebSearch":
+		return Truncate(string(in.Query), 120)
+	case isAgentTool(tool):
+		d := Truncate(string(in.Description), 200)
+		if in.SubagentType != "" {
+			return Truncate(string(in.SubagentType)+": "+d, maxText)
+		}
+		return d
+	case strings.HasPrefix(tool, "mcp__"):
+		return mcpTarget(tool)
+	}
+	return ""
+}
+
+// mcpTarget turns mcp__<server>__<tool> into "<server>/<tool>".
+func mcpTarget(tool string) string {
+	rest := strings.TrimPrefix(tool, "mcp__")
+	if server, name, ok := strings.Cut(rest, "__"); ok {
+		return server + "/" + name
+	}
+	return rest
+}
+
 // Convert builds the stored event from a raw hook payload.
 func Convert(data []byte, now time.Time) (state.Event, bool) {
 	var p rawPayload
 	if json.Unmarshal(data, &p) != nil || !state.SafeID(p.SessionID) || p.Name == "" {
 		return state.Event{}, false
 	}
+	// Bash and Agent keep their existing handling (input subset on the Post event, response text).
+	// Every other tool keeps only its target: no input, response or error text.
+	full := p.ToolName == "Bash" || isAgentTool(p.ToolName)
+	isTool := p.Name == "PreToolUse" || p.Name == "PostToolUse" || p.Name == "PostToolUseFailure"
 	e := state.Event{
 		TS: now.Format(time.RFC3339Nano), SessionID: p.SessionID, Cwd: p.Cwd, Name: p.Name,
 		PromptID: p.PromptID, AgentID: p.AgentID, AgentType: p.AgentType, Source: p.Source,
@@ -157,13 +263,24 @@ func Convert(data []byte, now time.Time) (state.Event, bool) {
 		LastAssistantMsg: Truncate(p.LastAssistantMsg, maxText), LastAssistantChars: utf8.RuneCountInString(p.LastAssistantMsg), BackgroundTasks: p.BackgroundTasks,
 	}
 	setPrompt(&e, p.Prompt)
-	if p.ToolInput != nil {
-		in := *p.ToolInput
-		in.Prompt = Truncate(in.Prompt, maxText)
-		in.Command = Truncate(in.Command, 1000) // test detection needs the whole command prefix, not the text cap
+	if isTool {
+		e.Target = Target(p.ToolName, p.ToolInput, p.Cwd)
+		if !full {
+			e.Error = ""
+		}
+		if p.Name == "PreToolUse" || !full {
+			e.Cwd = "" // the session's cwd comes from its other events; keep the per-call line small
+		}
+	}
+	if p.ToolInput != nil && full && p.Name != "PreToolUse" {
+		in := state.ToolInput{
+			Command:     Truncate(string(p.ToolInput.Command), 1000), // test detection needs the whole command prefix, not the text cap
+			Description: string(p.ToolInput.Description), SubagentType: string(p.ToolInput.SubagentType),
+			RunInBackground: bool(p.ToolInput.RunInBackground), Prompt: Truncate(string(p.ToolInput.Prompt), maxText),
+		}
 		e.ToolInput = &in
 	}
-	if len(p.ToolResponse) > 0 && p.ToolResponse[0] == '{' {
+	if len(p.ToolResponse) > 0 && p.ToolResponse[0] == '{' && (full || !isTool) && p.Name != "PreToolUse" {
 		var r rawResponse
 		if json.Unmarshal(p.ToolResponse, &r) == nil {
 			text := r.Stdout
@@ -176,7 +293,7 @@ func Convert(data []byte, now time.Time) (state.Event, bool) {
 				}
 				text = strings.Join(parts, "\n")
 			}
-			if p.ToolName == "Bash" && p.ToolInput != nil && strings.Contains(p.ToolInput.Command, "orca orchestration") {
+			if p.ToolName == "Bash" && p.ToolInput != nil && strings.Contains(string(p.ToolInput.Command), "orca orchestration") {
 				e.OrcaRuns = runIDs(r.Stdout) // from the full stdout, before the text is cut
 			}
 			e.ToolResponse = &state.ToolResponse{

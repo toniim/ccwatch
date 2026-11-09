@@ -219,8 +219,8 @@ func TestDashboardModel(t *testing.T) {
 	if d.Back.Processed <= d.Back.Received || d.Back.ProcFrac != 1 || d.Back.RecvFrac <= 0 || d.Back.RecvFrac >= 1 {
 		t.Errorf("back = %+v", d.Back)
 	}
-	if len(d.Log) != 11 {
-		t.Errorf("log rows = %d", len(d.Log))
+	if n := nonToolRows(d.Log); n != 11 { // the recorded Read/Bash calls add tool rows on top
+		t.Errorf("log rows = %d", n)
 	}
 	if !d.HooksFound || d.Ccwatch != true || !strings.Contains(d.HooksLine, "Stop×2") {
 		t.Errorf("hooks = %q found=%v ccwatch=%v", d.HooksLine, d.HooksFound, d.Ccwatch)
@@ -431,4 +431,15 @@ func TestHookExtractsRunIDsFromFullStdout(t *testing.T) {
 	if s := state.Build(evs, nil); strings.Join(s.RunIDs, ",") != "run_000000000002,run_000000000003" {
 		t.Errorf("session run ids = %v (only `orca orchestration` commands count)", s.RunIDs)
 	}
+}
+
+// nonToolRows counts the log rows that are not tool calls (single or grouped).
+func nonToolRows(rows []state.LogEntry) int {
+	n := 0
+	for _, r := range rows {
+		if r.Kind != "tool" && r.Kind != "tools" {
+			n++
+		}
+	}
+	return n
 }
