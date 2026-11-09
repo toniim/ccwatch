@@ -10,6 +10,7 @@ ccwatch  session 10000002 (ended)  cwd /tmp/acme-api
 ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
 ╎                           HAIKU-5-5 · main session                           ╎
 ╎                                  idle [   ]                                  ╎
+╎ last: Bash echo ok ✓ 14ms                                                    ╎
 ╎                                                                              ╎
 ╎ [✓] Run echo alpha -> general-purpose x2                                     ╎
 ╎                                                                              ╎

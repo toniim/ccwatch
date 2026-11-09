@@ -11,6 +11,7 @@ ccwatch  session 10000001 (ended)  cwd /home/dev/acme-api
 ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
 ╎                          SONNET-5-5 · main session                           ╎
 ╎                                  idle [   ]                                  ╎
+╎ last: Bash go test -C /home/dev/acme-api ./... 2>&1 | tail -40 ✓ 1.6s        ╎
 ╎                                                                              ╎
 ╎ [✓] Token refresh analysis -> Explore x3                                     ╎
 ╎                                                                              ╎

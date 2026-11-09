@@ -2,11 +2,12 @@ ccwatch  session 10000001 (ended)  cwd /home/dev/acme-api
 ┌─ .claude/agents/ ─────────────── [ /agents ] ┐ ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
 │ ├ explore.md  (Explore)                      │ ╎                      SONNET-5-5 · main session                      ╎
 │     model: haiku                             │ ╎                             idle [   ]                              ╎
-│     tools: Glob, Grep, Read, Bash            │ ╎                                                                     ╎
-│                                              │ ╎ [✓] Token refresh analysis -> Explore x3                            ╎
-│ settings.json                                │ ╎                                                                     ╎
-│ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎ main context                                              81.9k tok ╎
-│ ccwatch hooks: present                       │ ╎ window unknown · cost $0.3713                                       ╎
+│     tools: Glob, Grep, Read, Bash            │ ╎ last: Bash go test -C /home/dev/acme-api ./... 2>&1 | tail … ✓ 1.6s ╎
+│                                              │ ╎                                                                     ╎
+│ settings.json                                │ ╎ [✓] Token refresh analysis -> Explore x3                            ╎
+│ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎                                                                     ╎
+│ ccwatch hooks: present                       │ ╎ main context                                              81.9k tok ╎
+│                                              │ ╎ window unknown · cost $0.3713                                       ╎
 └──────────────────────────────────────────────┘ └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
                               » Task tool · 3 subagents · each in its own context window «                              
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐

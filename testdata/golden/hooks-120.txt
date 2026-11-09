@@ -2,10 +2,11 @@ ccwatch  session 10000002 (ended)  cwd /tmp/acme-api
 ┌─ .claude/agents/ ─────────────── [ /agents ] ┐ ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
 │ ├ general-purpose  built-in                  │ ╎                      HAIKU-5-5 · main session                       ╎
 │     model: haiku-5-5                         │ ╎                             idle [   ]                              ╎
-│                                              │ ╎                                                                     ╎
-│ settings.json                                │ ╎ [✓] Run echo alpha -> general-purpose x2                            ╎
-│ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎                                                                     ╎
-│ ccwatch hooks: present                       │ ╎ main context                                              67.7k tok ╎
+│                                              │ ╎ last: Bash echo ok ✓ 14ms                                           ╎
+│ settings.json                                │ ╎                                                                     ╎
+│ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎ [✓] Run echo alpha -> general-purpose x2                            ╎
+│ ccwatch hooks: present                       │ ╎                                                                     ╎
+│                                              │ ╎ main context                                              67.7k tok ╎
 │                                              │ ╎ window unknown · cost $0.0393                                       ╎
 └──────────────────────────────────────────────┘ └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
                               » Task tool · 2 subagents · each in its own context window «                              

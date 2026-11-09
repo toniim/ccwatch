@@ -11,6 +11,7 @@ ccwatch  session c0000000 (active)  cwd /work/coordinator
 ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
 ╎                           OPUS-5-5 · main session                            ╎
 ╎                             orchestrating [ | ]                              ╎
+╎ last: Agent Explore: Scan refresh code ✓                                     ╎
 ╎                                                                              ╎
 ╎ orca run: Fix the token refresh bug                                          ╎
 ╎ [✓] Map the token refresh bug -> worker explore-bug                          ╎

@@ -2,11 +2,12 @@ ccwatch  session c0000000 (active)  cwd /work/coordinator
 ┌─ .claude/agents/ ─────────────── [ /agents ] ┐ ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
 │ ├ explore.md  (Explore)                      │ ╎                       OPUS-5-5 · main session                       ╎
 │     model: haiku                             │ ╎                         orchestrating [ | ]                         ╎
-│     tools: Glob, Grep, Read, Bash            │ ╎                                                                     ╎
-│                                              │ ╎ orca run: Fix the token refresh bug                                 ╎
-│ settings.json                                │ ╎ [✓] Map the token refresh bug -> worker explore-bug                 ╎
-│ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎ [|] Patch refresh in isolation -> worker fix-refresh                ╎
-│ ccwatch hooks: present                       │ ╎ [ ] Verify and run tests -> worker verify                           ╎
+│     tools: Glob, Grep, Read, Bash            │ ╎ last: Agent Explore: Scan refresh code ✓                            ╎
+│                                              │ ╎                                                                     ╎
+│ settings.json                                │ ╎ orca run: Fix the token refresh bug                                 ╎
+│ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎ [✓] Map the token refresh bug -> worker explore-bug                 ╎
+│ ccwatch hooks: present                       │ ╎ [|] Patch refresh in isolation -> worker fix-refresh                ╎
+│                                              │ ╎ [ ] Verify and run tests -> worker verify                           ╎
 │                                              │ ╎                                                                     ╎
 │                                              │ ╎ main context                                              20.5k tok ╎
 │                                              │ ╎ window unknown · cost $0.0300                                       ╎
