@@ -262,7 +262,7 @@ launchctl load ~/Library/LaunchAgents/dev.ccwatch.serve.plist
 Claude Code passes the context window size to the status line command, and only there. `ccwatch line` reads that JSON on stdin, records the window size for the session, and prints one line:
 
 ```
-Haiku | idle | agents 0 live | workers 1/1 | ctx 36k 18% | tests 1/1
+Opus | idle | agents 0 live | workers 2/2 | ctx 30k 15% | tests 0/0
 ```
 
 Without it the views show `window unknown` for the main context. If you already have a status line script, wrap it and let ccwatch add a second line:
@@ -304,47 +304,40 @@ Keys: `t` toggles the table view, `tab` switches to the next session (and stops 
 One frame (`ccwatch tui --once --width 120`):
 
 ```
-ccwatch  session 263e82d7 (ended)  cwd /tmp/acme-api
+ccwatch  session c3014d9e (ended)  cwd /tmp/acme-api
 ┌─ .claude/agents/ ─────────────── [ /agents ] ┐ ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
-│ ├ explore.md  (Explore)                      │ ╎                   CLAUDE-HAIKU-5-5 · main session                   ╎
-│     model: haiku                             │ ╎                             idle [   ]                              ╎
-│     tools: Glob, Grep, Read, Bash            │ ╎                                                                     ╎
-│ ├ general-purpose  built-in                  │ ╎ [✓] Summarise Refresh in refresh.go -> Explore x2 + general-purpos… ╎
-│     model: claude-haiku-5-5                  │ ╎                                                                     ╎
-│                                              │ ╎ main context                                              29.5k tok ╎
-│ settings.json                                │ ╎ window unknown · cost $0.0139                                       ╎
-│ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎                                                                     ╎
+│ ├ Explore  built-in                          │ ╎                     MAIN · main session · work                      ╎
+│     model: ?                                 │ ╎                             idle [   ]                              ╎
+│ ├ general-purpose  built-in                  │ ╎                                                                     ╎
+│     model: ?                                 │ ╎ [|] subagent launches -> Explore x2 + general-purpose x1            ╎
+│                                              │ ╎                                                                     ╎
+│ settings.json                                │ ╎ main context                                                  0 tok ╎
+│ hooks: PostToolUse×1 PostToolUseFailure×1    │ ╎ window unknown · cost $0.0000                                       ╎
+│        SessionEnd×1 SessionStart×1 Stop×1    │ ╎                                                                     ╎
+│        SubagentStart×1 SubagentStop×1 …      │ ╎                                                                     ╎
 │ ccwatch hooks: present                       │ ╎                                                                     ╎
 └──────────────────────────────────────────────┘ └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
                               » Task tool · 3 subagents · each in its own context window «                              
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ Explore           ■ ■                                                                    ██████████████████████ 100% │
-│ claude-haiku-5-5  ○ done                                                                                             │
+│ Explore           □ □                                                                    ░░░░░░░░░░░░░░░░░░░░░░   0% │
+│ ?                 ○ queued                                                                                           │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ general-purpose   ■                                                                      ██████████████████████ 100% │
-│ claude-haiku-5-5  ○ done                                                                                             │
+│ general-purpose   □                                                                      ░░░░░░░░░░░░░░░░░░░░░░   0% │
+│ ?                 ○ queued                                                                                           │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-┌╌ back to claude-haiku-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
-╎ subagents processed   108.6k tok  ██████████████████████████████████████████████████████████                         ╎
-╎ main received ≈       438 tok     ██████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░                         ╎
-╎ bars use a log scale · leverage ×248 · peak subagent ctx 16.7k                                                       ╎
+┌╌ back to main · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
+╎ subagents processed   0 tok       ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                         ╎
+╎ main received ≈       0 tok       ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                         ╎
+╎ bars use a log scale · leverage - · peak subagent ctx 0                                                              ╎
 └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
 ┌─ session log ───────────────────────────────────────────────────────────────────────────────────── [ stream: ended ] ┐
-│ 17:02:23  you                    Find why the token refresh fails. Do exactly these steps, keeping every reply to o… │
-│ 17:02:26  Explore afce           started                                                                             │
-│ 17:02:26  Explore a6ba           started                                                                             │
-│ 17:02:27  general-purpose ac17   started                                                                             │
-│ 17:02:29  claude-haiku-5-5       The three agents are launched; the Explore agents came back as background runs, no… │
-│ 17:02:31  Explore a6ba           /tmp/acme-api/refresh_test.go has one test, TestRefresh, which checks two cases of… │
-│ 17:02:32  Explore afce           Refresh (/tmp/acme-api/refresh.go, lines 18-23) takes the current Token and a now … │
-│ 17:02:33  claude-haiku-5-5       The test-summary agent finished, but the background sleep agent has not reported y… │
-│ 17:02:34  claude-haiku-5-5       Both Explore summaries are in, but the background sleep agent still hasn't reporte… │
-│ 17:02:35  general-purpose ac17   ok                                                                                  │
-│ 17:02:36  tests                  pass  go test ./... 2>&1                                                            │
-│ 17:02:37  claude-haiku-5-5       go test ./... passes (cached), and Refresh in refresh.go only fails when the token… │
+│ 18:09:25  you                    Analyze the token refresh logic in refresh.go and refresh_test.go. Start two Explo… │
+│ 18:09:32  Explore af27           started                                                                             │
+│ 18:09:34  Explore a4e7           started                                                                             │
+│ 18:09:36  general-purpose a3f7   started                                                                             │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-tests 1/1 · tool failures 0 · t table · tab next · q quit
+tests 0/0 · tool failures 0 · t table · tab next · q quit
 ```
 
 **Web view**
