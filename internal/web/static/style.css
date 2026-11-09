@@ -92,32 +92,41 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 #worker-line { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* session tree sidebar */
-#layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 0 16px; align-items: start; }
+#layout { --side-w: 340px; display: grid; grid-template-columns: var(--side-w) 16px minmax(0, 1fr); align-items: start; }
 body.side-off #layout { grid-template-columns: minmax(0, 1fr); }
-body.side-off #side { display: none; }
+body.side-off #side, body.side-off #side-resize { display: none; }
+#side-resize { outline: none; position: sticky; top: 8px; height: calc(100vh - 16px); cursor: col-resize; touch-action: none; }
+#side-resize::after { content: ""; position: absolute; top: 0; bottom: 0; left: 7px; width: 2px; border-radius: 1px; background: transparent; transition: background .15s; }
+#side-resize:hover::after, #side-resize:focus-visible::after, #side-resize.drag::after { background: var(--purple); }
+body.resizing { cursor: col-resize; user-select: none; }
 #side { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; }
 #side .chk { padding: 0 6px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
-#tree .row { display: flex; align-items: center; padding-left: calc(var(--d, 0) * 14px); }
-#tree .arw { flex: none; width: 18px; height: 22px; background: none; border: 0; color: var(--muted); font: inherit; padding: 0; cursor: pointer; }
+#tree .row { display: flex; align-items: center; padding-left: calc(var(--d, 0) * 12px); }
+#tree .arw { flex: none; width: 16px; height: 22px; background: none; border: 0; color: var(--muted); font: inherit; padding: 0; cursor: pointer; }
 #tree .arw:hover { color: var(--fg); }
 #tree .arw.none { cursor: default; visibility: hidden; }
-#tree .sel { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; background: none; border: 0; border-left: 2px solid transparent; border-radius: 3px; color: var(--fg); font: inherit; text-align: left; padding: 2px 6px 2px 4px; cursor: pointer; white-space: nowrap; }
+#tree .sel { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; background: none; border: 0; border-left: 2px solid transparent; border-radius: 3px; color: var(--fg); font: inherit; text-align: left; padding: 2px 6px 2px 4px; cursor: pointer; white-space: nowrap; }
 #tree .sel:hover { background: #121a30; }
 #tree .row.cur .sel { background: #1b2540; border-left-color: var(--purple); }
 #tree .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
 #tree .dot.running { background: var(--orange); animation: pulse 1s ease-in-out infinite; }
 #tree .dot.ended { background: var(--muted); opacity: .6; }
-#tree .dir { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#tree .dir { flex: 1 1 0; min-width: 0; display: flex; overflow: hidden; }
+#tree .dir .h { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+#tree .dir .t { flex: none; white-space: pre; }
+#tree .dir .pre { flex: none; color: var(--muted); }
 #tree .row.ended-row .dir { color: var(--muted); }
-#tree .model { flex: none; color: var(--blue); }
+#tree .model { flex: none; width: 10ch; color: var(--blue); overflow: hidden; text-overflow: ellipsis; }
 #tree .badge { flex: none; color: var(--orange); }
-#tree .sid { flex: none; color: var(--muted); margin-left: auto; padding-left: 4px; }
+#tree .sid { flex: none; width: 8ch; color: var(--muted); }
+#side.narrow .sid { display: none; }
 #tree .runnode .sel { color: var(--purple); }
 #tree .runnode .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #tree .group .sel { color: var(--muted); }
 #scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 9; }
 @media (max-width: 899.98px) {
   #layout, body.side-off #layout { grid-template-columns: minmax(0, 1fr); }
+  #side-resize, body.side-off #side-resize { display: none; }
   #side, body.side-off #side { display: block; position: fixed; z-index: 10; top: 0; left: 0; bottom: 0; max-height: none; width: min(86vw, 340px); border-radius: 0; transform: translateX(-102%); transition: transform .2s ease; }
   body.side-on #side { transform: none; }
 }

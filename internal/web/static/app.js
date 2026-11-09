@@ -62,6 +62,27 @@ const isOpen = (key, dflt) => key in expanded ? expanded[key] : dflt;
 function setOpen(key, v) { expanded[key] = v; store.set("ccwatch.tree", JSON.stringify(expanded)); }
 
 const dirName = (s) => base(s.cwd) || s.id.slice(0, 8);
+// nameNode keeps the end of a long name: the head shrinks with an ellipsis, the last TAIL characters stay.
+// cut chars of a shared prefix are dropped and shown as a muted "…".
+const TAIL = 9;
+function nameNode(name, cut) {
+  const n = h("span", { class: "dir" });
+  if (cut) { n.append(h("span", { class: "pre" }, "…")); name = name.slice(cut); }
+  const chars = [...name];
+  if (chars.length <= TAIL + 2) n.append(h("span", { class: "h" }, name));
+  else n.append(h("span", { class: "h" }, chars.slice(0, -TAIL).join("")), h("span", { class: "t" }, chars.slice(-TAIL).join("")));
+  return n;
+}
+// sharedCut returns how many leading characters every name has in common, cut back to a
+// separator and only for 2+ names, so "ccwatch-" goes but no name is ever stripped whole.
+function sharedCut(names) {
+  if (names.length < 2) return 0;
+  let p = names[0];
+  for (const nm of names) { let i = 0; while (i < p.length && i < nm.length && p[i] === nm[i]) i++; p = p.slice(0, i); }
+  const m = /^.*[-_./ ]/.exec(p);
+  const cut = m ? m[0].length : 0;
+  return names.every((nm) => nm.length > cut) ? cut : 0;
+}
 const runText = (r) => "orca run: " + (r.objective || r.id);
 
 // buildTree turns the flat /api/sessions list into nodes: coordinators and
@@ -93,7 +114,7 @@ function buildTree(list) {
 }
 const nodeEnded = (n) => n.kind === "session" ? n.s.ended : n.kids.length > 0 && n.kids.every(nodeEnded);
 
-function nodeRow(n, depth, selId) {
+function nodeRow(n, depth, selId, cut) {
   const hasKids = n.kids.length > 0;
   const open = hasKids && isOpen(n.key, true);
   const arw = h("button", { class: "arw" + (hasKids ? "" : " none"), type: "button", "aria-label": open ? "collapse" : "expand", tabindex: hasKids ? "0" : "-1" }, open ? "▾" : "▸");
@@ -102,9 +123,9 @@ function nodeRow(n, depth, selId) {
   if (n.kind === "session") {
     const s = n.s;
     sel = h("button", { class: "sel", type: "button", title: s.label },
-      h("span", { class: "dot " + s.state }), h("span", { class: "dir" }, dirName(s)));
-    if (s.model) sel.append(h("span", { class: "model" }, s.model));
+      h("span", { class: "dot " + s.state }), nameNode(dirName(s), cut));
     if (s.subagents > 0) sel.append(h("span", { class: "badge" }, s.live + "/" + s.subagents + " agents"));
+    sel.append(h("span", { class: "model" }, s.model || ""));
     sel.append(h("span", { class: "sid" }, s.id.slice(0, 8)));
     sel.addEventListener("click", () => pick(s.id));
     if (s.id === selId) cls += " cur";
@@ -120,9 +141,11 @@ function nodeRow(n, depth, selId) {
   return row;
 }
 
-function paint(box, n, depth, selId) {
-  box.append(nodeRow(n, depth, selId));
-  if (n.kids.length && isOpen(n.key, true)) for (const k of n.kids) paint(box, k, depth + 1, selId);
+function paint(box, n, depth, selId, cut) {
+  box.append(nodeRow(n, depth, selId, cut));
+  if (!n.kids.length || !isOpen(n.key, true)) return;
+  const sib = n.kind === "run" ? sharedCut(n.kids.filter((k) => k.kind === "session").map((k) => dirName(k.s))) : 0;
+  for (const k of n.kids) paint(box, k, depth + 1, selId, k.kind === "session" ? sib : 0);
 }
 
 // pathTo lists the node keys above a session, so a selection inside a collapsed branch can be revealed.
@@ -151,7 +174,7 @@ function renderTree() {
     if (inAct) for (const k of inAct) if (!isOpen(k, true)) setOpen(k, true);
     if (inAct || inEnd) revealed = current;
   }
-  for (const n of active) paint(box, n, 0, current);
+  for (const n of active) paint(box, n, 0, current, 0);
   if (ended.length) {
     const open = isOpen(grp.key, false);
     const arw = h("button", { class: "arw", type: "button", "aria-label": open ? "collapse ended" : "expand ended" }, open ? "▾" : "▸");
@@ -161,7 +184,7 @@ function renderTree() {
     sel.addEventListener("click", toggle);
     const row = h("div", { class: "row group", role: "treeitem", "aria-expanded": String(open), style: "--d:0" }, arw, sel);
     box.append(row);
-    if (open) for (const n of ended) paint(box, n, 1, current);
+    if (open) for (const n of ended) paint(box, n, 1, current, 0);
   }
 }
 
@@ -199,6 +222,47 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Escape" && !DESKTOP.matches && sideOn()) setSide(false);
 });
 initSide();
+
+// ---- sidebar width: drag the right edge, double-click resets ----
+const W_MIN = 240, W_MAX = 560, W_DEF = 340;
+const clampW = (w) => Math.max(W_MIN, Math.min(W_MAX, Math.round(w)));
+function setWidth(w, save) {
+  $("layout").style.setProperty("--side-w", w + "px");
+  $("side-resize").setAttribute("aria-valuenow", String(w));
+  if (save) { if (w === W_DEF) store.set("ccwatch.sideW", ""); else store.set("ccwatch.sideW", String(w)); }
+}
+const storedW = parseInt(store.get("ccwatch.sideW") || "", 10);
+setWidth(storedW >= W_MIN && storedW <= W_MAX ? storedW : W_DEF);
+(() => {
+  const bar = $("side-resize");
+  let width = 0;
+  bar.setAttribute("aria-valuemin", String(W_MIN)); bar.setAttribute("aria-valuemax", String(W_MAX));
+  bar.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    bar.setPointerCapture(e.pointerId);
+    bar.classList.add("drag"); document.body.classList.add("resizing");
+    width = $("side").getBoundingClientRect().width;
+  });
+  bar.addEventListener("pointermove", (e) => {
+    if (!bar.hasPointerCapture(e.pointerId)) return;
+    width = clampW(e.clientX - $("side").getBoundingClientRect().left);
+    setWidth(width);
+  });
+  const end = (e) => {
+    if (!bar.classList.contains("drag")) return;
+    bar.classList.remove("drag"); document.body.classList.remove("resizing");
+    setWidth(clampW(width), true);
+  };
+  bar.addEventListener("pointerup", end);
+  bar.addEventListener("pointercancel", end);
+  bar.addEventListener("dblclick", () => setWidth(W_DEF, true));
+  bar.addEventListener("keydown", (e) => {
+    const d = e.key === "ArrowLeft" ? -16 : e.key === "ArrowRight" ? 16 : 0;
+    if (d) { e.preventDefault(); setWidth(clampW($("side").getBoundingClientRect().width + d), true); }
+  });
+  // the id column hides when the sidebar is narrower than 300 px (the full label stays in the title)
+  new ResizeObserver(() => $("side").classList.toggle("narrow", $("side").getBoundingClientRect().width < 300)).observe($("side"));
+})();
 
 function render(d) {
   for (const k of ["agents", "plan", "lanes", "log", "table"]) d[k] = d[k] || []; // never trust null arrays
