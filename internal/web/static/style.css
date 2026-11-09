@@ -20,7 +20,7 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 .green { color: var(--green); } .blue-t { color: var(--blue); }
 #cwd { padding-bottom: 10px; overflow-wrap: anywhere; }
 
-.top { display: grid; grid-template-columns: 2fr 3fr; gap: 14px; }
+.top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 14px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
 .panel h2 { font-size: 14.3px; margin: 0 0 8px; font-weight: 600; }
 .panel .tag { color: var(--muted); font-weight: 400; float: right; }
@@ -116,7 +116,7 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 .empty { color: var(--muted); }
 
 @media (max-width: 900px) {
-  .top { grid-template-columns: 1fr; }
+  .top { grid-template-columns: minmax(0, 1fr); }
   .lane { grid-template-columns: 1fr; } .lane .status { grid-column: 1; }
   .brow { grid-template-columns: 1fr; }
   #log .row { grid-template-columns: 9ch 1fr; } #log .row .txt { grid-column: 1 / 3; }
@@ -124,6 +124,14 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
   .pill { margin-left: 0; }
 }
 #worker-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* main box: long text wraps instead of widening the page; lane .now lines keep their one-line ellipsis */
+#main { min-width: 0; }
+#main-title, #main-state, #worker-line, #run { overflow-wrap: anywhere; }
+#now.nowline { white-space: normal; overflow-wrap: anywhere; align-items: baseline; justify-content: center; }
+#now.nowline .nt { overflow: visible; text-overflow: clip; flex: 0 1 auto; }
+.ctx { min-width: 0; }
+.ctx .bar { min-width: 0; }
 
 /* session tree sidebar */
 #layout { --side-w: 340px; display: grid; grid-template-columns: var(--side-w) 16px minmax(0, 1fr); align-items: start; }
