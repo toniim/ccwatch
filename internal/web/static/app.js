@@ -425,6 +425,20 @@ function fillRow(sid, r, txt) {
   loadPrompt(sid, r.key, raw).then((t) => { if (body.isConnected) body.textContent = t; });
 }
 
+// ---- the log's "who" column is as wide as its longest label, between 5ch and 16ch ----
+const WHO_MIN = 5, WHO_MAX = 16;
+let whoMax = WHO_MAX; // width in characters of the log being rendered
+// whoText cuts a label in the middle, keeping the agent id at the end: "general-purpose ab93" -> "general-p… ab93".
+function whoText(who, max) {
+  const c = [...who];
+  if (c.length <= max) return who;
+  const i = who.lastIndexOf(" ");
+  const tail = i > 0 && c.length - [...who.slice(0, i)].length <= 9 ? who.slice(i) : [...who].slice(-4).join("");
+  const keep = Math.max(1, max - [...tail].length - 2); // the ellipsis counts as two cells: fallback fonts draw it double width
+  return c.slice(0, keep).join("") + "…" + tail;
+}
+const whoCell = (who, max) => h("span", { class: "who", title: who }, whoText(who, max));
+
 // ---- tool rows: "Bash  go test ./... ✓ 28ms"; a click expands the stored params and the Bash output ----
 const toolCache = new Map(); // sessionId|key -> detail of a finished call
 async function loadTool(sid, key) {
@@ -475,7 +489,7 @@ function toolLine(sid, r, grouped) {
   const head = h("span", { class: "head" }, h("span", { class: "tn" }, r.tool || ""), "  ",
     h("span", { class: "ts", title: r.summary }, r.summary || ""), h("span", { class: "tm" }, mark + (r.dur_ms ? " " + dur(r.dur_ms) : "")));
   const row = h("div", { class: (grouped ? "titem " : "row tool ") + (r.tag || "") }, h("span", { class: "t" }, clock(r.ts)));
-  if (!grouped) row.append(h("span", { class: "who", title: r.who }, r.who));
+  row.append(grouped ? h("span", { class: "who" }) : whoCell(r.who, whoMax));
   row.append(txt);
   row.classList.add("more");
   const fill = () => {
@@ -501,7 +515,7 @@ function toolRows(sid, r) { // a grouped row: collapsed to "N tool calls", expan
   const gk = sid + "|g|" + r.ts + "|" + r.who;
   const txt = h("span", { class: "txt" });
   const row = h("div", { class: "row tools" + (openRows.has(gk) ? " open" : "") },
-    h("span", { class: "t" }, clock(r.ts)), h("span", { class: "who", title: r.who }, r.who), txt);
+    h("span", { class: "t" }, clock(r.ts)), whoCell(r.who, whoMax), txt);
   const fill = () => {
     txt.textContent = r.text + (r.count > (r.items || []).length ? " (last " + r.items.length + " listed)" : "");
     if (!openRows.has(gk)) return;
@@ -522,6 +536,8 @@ function renderLog(d) {
   const box = $("log");
   box.textContent = "";
   const rows = showTools ? d.log : d.log.filter((r) => r.kind !== "tool" && r.kind !== "tools");
+  whoMax = Math.min(WHO_MAX, Math.max(WHO_MIN, ...rows.map((r) => [...(r.who || "")].length)));
+  box.style.setProperty("--who-w", whoMax + "ch");
   if (!rows.length) box.append(h("div", { class: "empty" }, "no events yet"));
   rows.forEach((r, i) => {
     if (r.kind === "tools") { box.append(toolRows(d.sessionId, r)); return; }
@@ -532,7 +548,7 @@ function renderLog(d) {
     const text = r.kind === "test" ? r.tag + "  " + r.text : r.kind === "notice" ? (r.tag ? r.tag + "  " : "") + r.text : r.text;
     const txt = h("span", { class: "txt" }, text);
     const row = h("div", { class: "row " + r.kind + (r.tag ? " " + r.tag : "") + (isNew ? " new" : "") },
-      h("span", { class: "t" }, clock(r.ts)), h("span", { class: "who", title: r.who }, r.who), txt);
+      h("span", { class: "t" }, clock(r.ts)), whoCell(r.who, whoMax), txt);
     if (r.key) {
       const rk = d.sessionId + "|" + r.key;
       row.classList.add("more");

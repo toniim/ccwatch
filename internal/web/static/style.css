@@ -69,7 +69,8 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 #back h2 { color: var(--green); }
 .brow { display: grid; grid-template-columns: 190px 90px 1fr; gap: 10px; align-items: center; }
 #logbox { margin-top: 14px; }
-#log .row { display: grid; grid-template-columns: 9ch 24ch 1fr; gap: 12px; padding: 2px 0; }
+#log { --who-w: 12ch; }
+#log .row { display: grid; grid-template-columns: 9ch calc(var(--who-w) + .5ch) 1fr; gap: 12px; padding: 2px 0; }
 #log .row .t { color: var(--muted); }
 #log .row .who { color: var(--orange); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #log .row.you .who { color: var(--fg); font-weight: 700; } #log .row.model .who { color: var(--purple); }
@@ -87,7 +88,9 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 #log .row.tools { cursor: pointer; }
 #log .row.tools > .txt::before { content: "▸ "; } #log .row.tools.open > .txt::before { content: "▾ "; }
 #log .row .sub { margin-top: 2px; }
-#log .row .sub .titem { display: grid; grid-template-columns: 9ch minmax(0, 1fr); gap: 12px; }
+/* sub-rows use the log's own columns: they start at the left edge, time under time, text under text */
+#log .row .sub { margin-left: calc(-1 * (9ch + var(--who-w) + .5ch + 24px)); }
+#log .row .sub .titem { display: grid; grid-template-columns: 9ch calc(var(--who-w) + .5ch) minmax(0, 1fr); gap: 12px; }
 #log .row .sub .fail { color: var(--red); }
 #log .row.tool .tn, #log .titem .tn { color: var(--fg); }
 #log .row.tool .tm, #log .titem .tm { color: var(--muted); }
@@ -117,6 +120,7 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
   .lane { grid-template-columns: 1fr; } .lane .status { grid-column: 1; }
   .brow { grid-template-columns: 1fr; }
   #log .row { grid-template-columns: 9ch 1fr; } #log .row .txt { grid-column: 1 / 3; }
+  #log .row .sub { margin-left: 0; } #log .row .sub .titem { grid-template-columns: 9ch minmax(0, 1fr); } #log .titem .who { display: none; }
   .pill { margin-left: 0; }
 }
 #worker-line { white-space: pre-wrap; overflow-wrap: anywhere; }
