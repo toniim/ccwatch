@@ -7,7 +7,7 @@ ccwatch  session d4e5f600 (active)  cwd /work/trees/explore-bug
 │ ccwatch hooks: present                                                       │
 └──────────────────────────────────────────────────────────────────────────────┘
 ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
-╎                       CLAUDE-HAIKU-5-5 · main session                        ╎
+╎                           HAIKU-5-5 · main session                           ╎
 ╎                                  idle [   ]                                  ╎
 ╎ nested in worker session a1000000 (same terminal) · not joined to Orca       ╎
 ╎                                                                              ╎
@@ -18,12 +18,12 @@ ccwatch  session d4e5f600 (active)  cwd /work/trees/explore-bug
 └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
           » Task tool · 0 subagents · each in its own context window «          
                                   no lanes yet                                  
-┌╌ back to claude-haiku-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
+┌╌ back to haiku-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
 ╎ subagents processed   0 tok       ░░░░░░░░░░░░░░░░░░                         ╎
 ╎ main received ≈       0 tok       ░░░░░░░░░░░░░░░░░░                         ╎
 ╎ bars use a log scale · leverage - · peak subagent ctx 0                      ╎
 └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
 ┌─ session log ────────────────────────────────────────────── [ stream: live ] ┐
-│ 09:02:10  claude-haiku-5-5     done                                          │
+│ 09:02:10  haiku-5-5            done                                          │
 └──────────────────────────────────────────────────────────────────────────────┘
 tests 0/0 · tool failures 0 · t table · tab next · q quit

@@ -110,7 +110,7 @@ func (s *Server) listSessions() []SessionInfo {
 	out := make([]SessionInfo, 0, len(ids))
 	for _, id := range ids {
 		ss := state.Load(s.Src.Dir, id)
-		info := SessionInfo{ID: id, Cwd: ss.Cwd, Model: ss.Model, Ended: ss.Ended, Subagents: len(ss.Subagents), Live: ss.Live()}
+		info := SessionInfo{ID: id, Cwd: ss.Cwd, Model: view.ShortModel(ss.Model), Ended: ss.Ended, Subagents: len(ss.Subagents), Live: ss.Live()}
 		info.State, info.Label = sessionLabel(id, ss)
 		if t := state.ModTime(s.Src.Dir, id); !t.IsZero() {
 			info.Updated = t.UTC().Format(time.RFC3339)
@@ -254,7 +254,7 @@ func sessionLabel(id string, ss state.Session) (string, string) {
 	case total > 0:
 		agents = view.Plural(total, "agent") + " done"
 	}
-	model := ss.Model
+	model := view.ShortModel(ss.Model)
 	if model == "" {
 		model = "?"
 	}

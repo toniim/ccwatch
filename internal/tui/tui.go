@@ -163,7 +163,7 @@ func Table(s state.Session, ws []workers.Worker, haveOrca, allWorkers bool, widt
 	}
 	fmt.Fprintf(&b, "%s  session %s (%d of %d, %s)\n", bold.Render("ccwatch"), short(s.ID, 8), pos, total, st)
 	fmt.Fprintf(&b, "cwd %s\n", trunc(s.Cwd, w-4))
-	model := s.Model
+	model := view.ShortModel(s.Model)
 	if model == "" {
 		model = "?"
 	}
@@ -191,7 +191,7 @@ func Table(s state.Session, ws []workers.Worker, haveOrca, allWorkers bool, widt
 			desc += " (bg)"
 		}
 		fmt.Fprintf(&b, "%s %s %s %s %s %s %s %s %s\n", pad(short(a.ID, wID), wID), pad(a.Type, wType), pad(desc, wDesc),
-			pad(a.Model, wModel), pad(stt, wState), pad(line.Tokens(a.Tokens), wTok), pad(line.Tokens(a.Peak), wPeak), pad(dur(a.DurationMs), wDur),
+			pad(view.ShortModel(a.Model), wModel), pad(stt, wState), pad(line.Tokens(a.Tokens), wTok), pad(line.Tokens(a.Peak), wPeak), pad(dur(a.DurationMs), wDur),
 			trunc(a.Summary, wSum))
 	}
 	b.WriteString("\n")

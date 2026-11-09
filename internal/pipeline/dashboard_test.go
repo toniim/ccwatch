@@ -160,8 +160,8 @@ func TestOrcaJoinByTerminal(t *testing.T) {
 		t.Fatalf("orca lane = %+v", l)
 	}
 	// model = the worker session's model; the nested haiku session on the same terminal is ignored
-	if l.Model != "claude-sonnet-5-5" {
-		t.Errorf("orca lane model = %q, want claude-sonnet-5-5 (worker session, not nested haiku)", l.Model)
+	if l.Model != "sonnet-5-5" {
+		t.Errorf("orca lane model = %q, want sonnet-5-5 (worker session, not nested haiku)", l.Model)
 	}
 	if coord.OrcaHeader != "» Orca Run · 3 workers · each in its own session «" {
 		t.Errorf("header = %q", coord.OrcaHeader)
@@ -337,7 +337,7 @@ func TestParseRun(t *testing.T) {
 		t.Errorf("orca lane must not be in the Task tool lanes: %+v", d.Lanes)
 	}
 	l := *d.OrcaLane
-	if l.Name != "orca workers" || l.Done != 1 || l.Total != 3 || l.Status != "1 running" || l.Model != "claude-sonnet-5-5" {
+	if l.Name != "orca workers" || l.Done != 1 || l.Total != 3 || l.Status != "1 running" || l.Model != "sonnet-5-5" {
 		t.Errorf("orca lane = %+v", l)
 	}
 }

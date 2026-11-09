@@ -158,7 +158,7 @@ func typeKey(t string) string {
 // Build assembles the dashboard.
 func Build(s state.Session, ext Ext) Dashboard {
 	d := Dashboard{
-		SessionID: s.ID, Cwd: s.Cwd, Model: s.Model, Ended: s.Ended, CostUSD: s.CostUSD,
+		SessionID: s.ID, Cwd: s.Cwd, Model: ShortModel(s.Model), Ended: s.Ended, CostUSD: s.CostUSD,
 		Ctx: s.MainCtx, CtxSize: s.CtxWindow, Subagents: len(s.Subagents), LiveAgents: s.Live(),
 		TestsPass: s.TestsPass, TestsFail: s.TestsFail, ToolFails: s.ToolFailures,
 		Leverage: s.Leverage(), Run: ext.Run, WorkerLine: ext.WorkerLine, NestedLine: ext.NestedLine, ProcessedTk: s.Processed, PeakCtx: s.PeakCtx,
@@ -185,7 +185,7 @@ func Build(s state.Session, ext Ext) Dashboard {
 			state = "running"
 		}
 		d.Table = append(d.Table, TableRow{ID: a.ID, Type: a.Type, Description: a.Description, Background: a.Background,
-			Model: a.Model, State: state, Tokens: a.Tokens, Peak: a.Peak, DurationMs: a.DurationMs, Summary: a.Summary})
+			Model: ShortModel(a.Model), State: state, Tokens: a.Tokens, Peak: a.Peak, DurationMs: a.DurationMs, Summary: a.Summary})
 	}
 	for _, k := range order {
 		list := byType[k]
@@ -214,9 +214,9 @@ func Build(s state.Session, ext Ext) Dashboard {
 		l.Done += failed // a failed launch is finished work for the bar
 		l.Pct = l.Done * 100 / l.Total
 		def, hasDef := lookup(ext.Agents, k)
-		l.Model = topModel(models)
+		l.Model = ShortModel(topModel(models))
 		if l.Model == "" && hasDef {
-			l.Model = def.Model
+			l.Model = ShortModel(def.Model)
 		}
 		if l.Model == "" {
 			l.Model = "?"
@@ -240,7 +240,7 @@ func Build(s state.Session, ext Ext) Dashboard {
 		if hasDef {
 			card.File, card.Tools = def.File, def.Tools
 			if def.Model != "" {
-				card.Model = def.Model
+				card.Model = ShortModel(def.Model)
 			}
 		}
 		d.Agents = append(d.Agents, card)
@@ -279,7 +279,7 @@ func Build(s state.Session, ext Ext) Dashboard {
 		}
 		if lane.Total > 0 {
 			lane.Pct = lane.Done * 100 / lane.Total
-			lane.Model = topModel(models)
+			lane.Model = ShortModel(topModel(models))
 			if lane.Model == "" {
 				lane.Model = "?"
 			}
@@ -326,6 +326,13 @@ func Build(s state.Session, ext Ext) Dashboard {
 	}
 	if d.Log == nil {
 		d.Log = []state.LogEntry{}
+	}
+	// model rows carry the raw model id as their name: shorten a copy, the state stays raw
+	d.Log = append(make([]state.LogEntry, 0, len(d.Log)), d.Log...)
+	for i := range d.Log {
+		if d.Log[i].Kind == "model" {
+			d.Log[i].Who = ShortModel(d.Log[i].Who)
+		}
 	}
 
 	h := ext.Hooks

@@ -1,6 +1,6 @@
 ccwatch  session a1000000 (active)  cwd /work/trees/explore-bug
 ┌─ .claude/agents/ ─────────────── [ /agents ] ┐ ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
-│ no subagent types used yet                   │ ╎                  CLAUDE-SONNET-5-5 · main session                   ╎
+│ no subagent types used yet                   │ ╎                      SONNET-5-5 · main session                      ╎
 │                                              │ ╎                             idle [   ]                              ╎
 │ settings.json                                │ ╎ worker of run_000000000001 · task Map the token refresh bug         ╎
 │ hooks: PostToolUse×1 Stop×2 SubagentStop×1   │ ╎                                                                     ╎
@@ -11,12 +11,12 @@ ccwatch  session a1000000 (active)  cwd /work/trees/explore-bug
 └──────────────────────────────────────────────┘ └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
                               » Task tool · 0 subagents · each in its own context window «                              
                                                       no lanes yet                                                      
-┌╌ back to claude-sonnet-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
+┌╌ back to sonnet-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
 ╎ subagents processed   0 tok       ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                         ╎
 ╎ main received ≈       0 tok       ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                         ╎
 ╎ bars use a log scale · leverage - · peak subagent ctx 0                                                              ╎
 └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
 ┌─ session log ────────────────────────────────────────────────────────────────────────────────────── [ stream: live ] ┐
-│ 09:01:40  claude-sonnet-5-5      Bug is in refresh().                                                                │
+│ 09:01:40  sonnet-5-5             Bug is in refresh().                                                                │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 tests 0/0 · tool failures 0 · t table · tab next · q quit

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/toniim/ccwatch/internal/state"
+	"github.com/toniim/ccwatch/internal/view"
 	"github.com/toniim/ccwatch/internal/workers"
 )
 
@@ -41,7 +42,7 @@ func Tokens(n int64) string {
 func Render(in Input, s state.Session, ws []workers.Worker, haveWorkers bool) string {
 	model := in.Model.DisplayName
 	if model == "" {
-		model = s.Model
+		model = view.ShortModel(s.Model)
 	}
 	if model == "" {
 		model = "?"
