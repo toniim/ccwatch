@@ -10,6 +10,7 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 .tgl { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; font: inherit; cursor: pointer; }
 .tgl:hover, .tgl[aria-expanded="true"] { border-color: var(--purple); }
 .chk { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.chk.rev { display: inline-flex; vertical-align: middle; margin-left: 6px; font-size: 13px; font-weight: 400; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .seg button { background: var(--panel); color: var(--muted); border: 0; padding: 4px 12px; font: inherit; cursor: pointer; }
 .seg button.on { background: #1b2540; color: var(--fg); }

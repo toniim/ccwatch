@@ -57,6 +57,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage may be unavailable */ } },
 };
 let showTools = store.get("ccwatch.tools") !== "0"; // tool rows in the session log
+let logReverse = store.get("ccwatch.logReverse") === "1"; // newest log row on top
 let expanded = {};  // node key -> explicit expand (true) / collapse (false); unset = default
 try { expanded = JSON.parse(store.get("ccwatch.tree") || "{}") || {}; } catch (e) { expanded = {}; }
 const isOpen = (key, dflt) => key in expanded ? expanded[key] : dflt;
@@ -520,7 +521,8 @@ function toolRows(sid, r) { // a grouped row: collapsed to "N tool calls", expan
     txt.textContent = r.text + (r.count > (r.items || []).length ? " (last " + r.items.length + " listed)" : "");
     if (!openRows.has(gk)) return;
     const sub = h("div", { class: "sub" });
-    for (const it of r.items || []) sub.append(toolLine(sid, it, true));
+    const items = logReverse ? [...(r.items || [])].reverse() : (r.items || []);
+    for (const it of items) sub.append(toolLine(sid, it, true));
     txt.append(sub);
   };
   fill();
@@ -532,10 +534,14 @@ function toolRows(sid, r) { // a grouped row: collapsed to "N tool calls", expan
   return row;
 }
 
-function renderLog(d) {
+function renderLog(d, toggled) {
   const box = $("log");
+  // reverse mode grows at the top: keep what the reader looks at in place when the log starts above the viewport
+  const anchor = logReverse && !toggled && box.getBoundingClientRect().top < 0;
+  const h0 = box.offsetHeight;
   box.textContent = "";
-  const rows = showTools ? d.log : d.log.filter((r) => r.kind !== "tool" && r.kind !== "tools");
+  let rows = showTools ? d.log : d.log.filter((r) => r.kind !== "tool" && r.kind !== "tools");
+  if (logReverse) rows = [...rows].reverse();
   whoMax = Math.min(WHO_MAX, Math.max(WHO_MIN, ...rows.map((r) => [...(r.who || "")].length)));
   box.style.setProperty("--who-w", whoMax + "ch");
   if (!rows.length) box.append(h("div", { class: "empty" }, "no events yet"));
@@ -563,6 +569,7 @@ function renderLog(d) {
     box.append(row);
   });
   firstLog = false;
+  if (anchor) { const dh = box.offsetHeight - h0; if (dh) window.scrollBy(0, dh); }
 }
 
 function renderTable(d) {
@@ -594,7 +601,14 @@ $("tools-toggle").addEventListener("click", () => {
   showTools = !showTools;
   store.set("ccwatch.tools", showTools ? "1" : "0");
   syncTools();
-  if (lastData) renderLog(lastData);
+  if (lastData) renderLog(lastData, true);
+});
+
+$("log-reverse").checked = logReverse;
+$("log-reverse").addEventListener("change", (e) => {
+  logReverse = e.target.checked;
+  store.set("ccwatch.logReverse", logReverse ? "1" : "0");
+  if (lastData) renderLog(lastData, true);
 });
 
 $("v-dash").addEventListener("click", () => setView("dash"));
