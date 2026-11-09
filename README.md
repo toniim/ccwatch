@@ -2,7 +2,7 @@
 
 A read-only live view of what Claude Code is doing: which subagents are running, how many tokens each one used, how large the main context is, whether tests pass, and (optionally) which Orca workers belong to a session. It runs as a small local service and shows the result as a terminal UI, a web page, and one extra line in your Claude Code status line. It never talks to Claude Code's API and never changes a session; it only listens.
 
-![ccwatch web dashboard](docs/screenshots/dashboard.png)
+![ccwatch web dashboard](docs/screenshots/overview.png)
 
 ## How it works
 
@@ -64,6 +64,18 @@ go build -o ~/.local/bin/ccwatch .
       }
     ],
     "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "/home/you/go/bin/ccwatch hook",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PreToolUse": [
       {
         "hooks": [
           {
@@ -344,9 +356,19 @@ tests 0/0 · tool failures 0 · t table · tab next · q quit
 
 Open <http://127.0.0.1:4319/>. Sessions are listed as a tree in the left sidebar: coordinators with their Orca Run and worker sessions, `claude -p` sessions nested under the session that started them, standalone sessions, and an "ended" group. Click a node to pin that session (`?session=<id>` in the URL); "follow latest" at the top of the sidebar jumps to the newest one. Hide or show the sidebar with the "sessions" button or the `[` key, and drag its right edge to resize it (double-click resets); below 900 px it opens as a drawer. Switch between the dashboard and the table with the buttons at the top. It updates live (server-sent events).
 
-| Dashboard | Orca Run | Table | Mobile (390 px) |
+The main session panel shows what the session is doing now: a `now:` line when a tool is running, or `last:` with the most recent tool when idle. Each tool row in the session log shows which tool was called; click the row to expand it and see the full parameters and, for Bash commands, a preview of stdout/stderr (head + tail).
+
+| Overview | Orca Run | Table | Mobile Drawer |
 |---|---|---|---|
-| ![dashboard](docs/screenshots/dashboard.png) | ![orca run](docs/screenshots/orca-run.png) | ![table](docs/screenshots/table.png) | ![mobile](docs/screenshots/mobile.png) |
+| ![overview](docs/screenshots/overview.png) | ![orca run](docs/screenshots/orca-run.png) | ![table](docs/screenshots/table.png) | ![mobile drawer](docs/screenshots/mobile-drawer.png) |
+
+| Session log | Sidebar hidden | Profile tag |
+|---|---|---|
+| ![session log with an expanded prompt, an Orca task row and a notice row](docs/screenshots/session-log.png) | ![dashboard with the sidebar hidden](docs/screenshots/sidebar-hidden.png) | ![session from another Claude profile, tagged in the tree and the header](docs/screenshots/profile-tag.png) |
+
+**Expanded tool row** (Bash with parameters and output preview):
+
+![tool params](docs/screenshots/tool-params.png)
 
 **Status line**
 
@@ -369,14 +391,14 @@ Everything stays on your machine, in the state directory: `$CCWATCH_STATE`, else
 
 | Path | Written by | Contains |
 |---|---|---|
-| `events/<session>.jsonl` | `ccwatch hook` | A trimmed copy of each hook payload: session id, `cwd`, event name, ids. Your prompt **in full** (bounded only by the 1 MiB hook stdin cap) with its kind and length; the views show a one-line preview, and the web view fetches the full text from `/api/prompt` only when you expand a row (an Orca dispatch wrapper only on request). The assistant's last message, subagent prompts, tool results and errors **truncated to 300 characters** (the first part of the text); Bash commands up to 1000 characters. For a session run under another Claude profile (`CLAUDE_CONFIG_DIR`): that profile's short name and its config dir relative to `$HOME` (only when it is under `$HOME`), used to tag the session and read that profile's `settings.json` and agents; no full path or other variable is stored. |
+| `events/<session>.jsonl` | `ccwatch hook` | A trimmed copy of each hook payload: session id, `cwd`, event name, ids. Your prompt **in full** (bounded only by the 1 MiB hook stdin cap) with its kind and length; the views show a one-line preview, and the web view fetches the full text from `/api/prompt` only when you expand a row (an Orca dispatch wrapper only on request). The assistant's last message and subagent prompts truncated to 300 characters (the first part of the text). Tool inputs **in full** (up to 16 KiB per string field, with `_chars` suffix for longer ones), plus Bash stdout/stderr previews (head + tail, up to 1000 characters each). For a session run under another Claude profile (`CLAUDE_CONFIG_DIR`): that profile's short name and its config dir relative to `$HOME` (only when it is under `$HOME`), used to tag the session and read that profile's `settings.json` and agents; no full path or other variable is stored. |
 | `otel/<session>.jsonl` | `ccwatch serve` | Only `api_request` and `subagent_completed` records (model, token counts, cost, `agent_id`, `query_source`, request ids). Attributes starting with `user.`, `organization.` or `anthropic.` (identity of the signed-in user) are dropped before writing. Files are created with mode 0644. |
 | `ctx/<session>.json` | `ccwatch line` | The context window size. |
 | `workers.json` | `ccwatch` | A short-lived cache of the Orca worker list. |
 
-Prompts, assistant text and commands from your sessions therefore do end up in these files. Treat the state directory like your shell history.
+Prompts, assistant text, tool inputs, and commands from your sessions therefore do end up in these files. Treat the state directory like your shell history.
 
-Network exposure: `serve` defaults to `127.0.0.1:4319`. When the address is loopback, the web page and `/api/*` only answer requests whose `Host` header is a loopback name (`localhost`, `127.0.0.1`, `::1`), which blocks DNS-rebinding. The OTLP endpoints are not authenticated; do not bind `serve` to a non-loopback address on a machine you do not trust (the Host check is off then).
+Network exposure: `serve` defaults to `127.0.0.1:4319`. When the address is loopback, the web page and `/api/*` only answer requests whose `Host` header is a loopback name (`localhost`, `127.0.0.1`, `::1`), which blocks DNS-rebinding. Binding to a LAN address turns this Host check off: anyone who can reach the address can read prompts, tool inputs, and commands from every session in the state directory. The OTLP endpoints are not authenticated.
 
 The web page loads the font Iosevka Charon Mono from Google Fonts (`fonts.googleapis.com`), so the browser contacts Google when you open it; it falls back to a system monospace font offline.
 
