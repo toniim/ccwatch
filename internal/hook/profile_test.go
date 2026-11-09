@@ -19,7 +19,7 @@ func TestProfileDerivation(t *testing.T) {
 		{"unset", "", "", ""},
 		{"default dir", home + "/.claude", "", ""},
 		{"default dir, trailing slash", home + "/.claude/", "", ""},
-		{"launcher home dir", home + "/.config/claude-vb/home", "vb", ".config/claude-vb/home"},
+		{"launcher home dir", home + "/.config/claude-work/home", "work", ".config/claude-work/home"},
 		{"dotted claude-work", home + "/.claude-work", "work", ".claude-work"},
 		{"outside home", "/opt/x", "x", ""},
 		{"outside home, home element", "/opt/y/home", "y", ""},
@@ -37,7 +37,7 @@ func TestProfileDerivation(t *testing.T) {
 func TestRunRecordsOnlyDerivedProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".config", "claude-vb", "home"))
+	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".config", "claude-work", "home"))
 	dir := t.TempDir()
 	payload := `{"session_id":"s1","hook_event_name":"SessionStart"}`
 	if err := Run(bytes.NewBufferString(payload), dir, time.Now()); err != nil {
@@ -51,7 +51,7 @@ func TestRunRecordsOnlyDerivedProfile(t *testing.T) {
 	if err := json.Unmarshal(b, &e); err != nil {
 		t.Fatal(err)
 	}
-	if e.Profile != "vb" || e.ConfigDir != ".config/claude-vb/home" {
+	if e.Profile != "work" || e.ConfigDir != ".config/claude-work/home" {
 		t.Errorf("event = profile %q config_dir %q", e.Profile, e.ConfigDir)
 	}
 	if bytes.Contains(b, []byte(home)) {

@@ -22,7 +22,7 @@ func TestSessionsAndStateExposeProfile(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("tagged01", `,"profile":"vb","config_dir":".config/claude-vb/home"`)
+	write("tagged01", `,"profile":"work","config_dir":".config/claude-work/home"`)
 	write("plain001", ``)
 	src := view.NewSource(dir)
 	src.OrcaOn = false
@@ -41,11 +41,11 @@ func TestSessionsAndStateExposeProfile(t *testing.T) {
 	got := map[string]any{}
 	for _, s := range list {
 		got[s["id"].(string)] = s["profile"]
-		if s["id"] == "tagged01" && s["label"] != "tagged01 · active · no agents · ? · vb · demo" {
+		if s["id"] == "tagged01" && s["label"] != "tagged01 · active · no agents · ? · work · demo" {
 			t.Errorf("label = %q", s["label"])
 		}
 	}
-	if got["tagged01"] != "vb" || got["plain001"] != "" {
+	if got["tagged01"] != "work" || got["plain001"] != "" {
 		t.Errorf("profile field = %v", got)
 	}
 
@@ -55,7 +55,7 @@ func TestSessionsAndStateExposeProfile(t *testing.T) {
 	}
 	defer resp2.Body.Close()
 	var d view.Dashboard
-	if err := json.NewDecoder(resp2.Body).Decode(&d); err != nil || d.Profile != "vb" {
+	if err := json.NewDecoder(resp2.Body).Decode(&d); err != nil || d.Profile != "work" {
 		t.Errorf("dashboard profile = %q (%v)", d.Profile, err)
 	}
 }

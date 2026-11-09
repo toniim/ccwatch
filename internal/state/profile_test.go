@@ -4,7 +4,7 @@ import "testing"
 
 func TestValidConfigDir(t *testing.T) {
 	for in, want := range map[string]bool{
-		".config/claude-vb/home": true,
+		".config/claude-work/home": true,
 		".claude-work":           true,
 		"":                       false,
 		".":                      false,
@@ -24,13 +24,13 @@ func TestValidConfigDir(t *testing.T) {
 func TestReduceProfileFirstNonEmpty(t *testing.T) {
 	s := Build([]Event{
 		{TS: "2026-01-01T10:00:00Z", SessionID: "s1", Name: "SessionStart"},
-		{TS: "2026-01-01T10:00:01Z", SessionID: "s1", Name: "UserPromptSubmit", Profile: "vb", ConfigDir: "../evil"},
-		{TS: "2026-01-01T10:00:02Z", SessionID: "s1", Name: "Stop", Profile: "other", ConfigDir: ".config/claude-vb/home"},
+		{TS: "2026-01-01T10:00:01Z", SessionID: "s1", Name: "UserPromptSubmit", Profile: "work", ConfigDir: "../evil"},
+		{TS: "2026-01-01T10:00:02Z", SessionID: "s1", Name: "Stop", Profile: "other", ConfigDir: ".config/claude-work/home"},
 	}, nil)
-	if s.Profile != "vb" {
-		t.Errorf("Profile = %q, want vb", s.Profile)
+	if s.Profile != "work" {
+		t.Errorf("Profile = %q, want work", s.Profile)
 	}
-	if s.ConfigDir != ".config/claude-vb/home" {
+	if s.ConfigDir != ".config/claude-work/home" {
 		t.Errorf("ConfigDir = %q: an invalid value must be skipped", s.ConfigDir)
 	}
 	if d := Build([]Event{{TS: "2026-01-01T10:00:00Z", SessionID: "s2", Name: "SessionStart"}}, nil); d.Profile != "" || d.ConfigDir != "" {
