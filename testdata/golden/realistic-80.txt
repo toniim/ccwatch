@@ -1,0 +1,43 @@
+ccwatch  session 10000001 (ended)  cwd /home/dev/acme-api
+┌─ .claude/agents/ ─────────────────────────────────────────────── [ /agents ] ┐
+│ ├ explore.md  (Explore)                                                      │
+│     model: haiku                                                             │
+│     tools: Glob, Grep, Read, Bash                                            │
+│                                                                              │
+│ settings.json                                                                │
+│ hooks: PostToolUse×1 Stop×2 SubagentStop×1                                   │
+│ ccwatch hooks: present                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+╎                       CLAUDE-SONNET-5-5 · main session                       ╎
+╎                                  idle [   ]                                  ╎
+╎                                                                              ╎
+╎ [✓] Token refresh analysis -> Explore x3                                     ╎
+╎                                                                              ╎
+╎ main context                                                       81.9k tok ╎
+╎ window unknown · cost $0.3713                                                ╎
+└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+          » Task tool · 3 subagents · each in its own context window «          
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Explore           ■ ■ ■                                      ██████████ 100% │
+│ claude-haiku-5-5  ○ done                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌╌ back to claude-sonnet-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
+╎ subagents processed   398.4k tok  ██████████████████                         ╎
+╎ main received ≈       781 tok     █████████░░░░░░░░░                         ╎
+╎ bars use a log scale · leverage ×510 · peak subagent ctx 44.1k               ╎
+└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+┌─ session log ───────────────────────────────────────────── [ stream: ended ] ┐
+│ 08:04:26  Explore aa3b         started                                       │
+│ 08:04:27  Explore aa4b         started                                       │
+│ 08:04:28  Explore aa5b         started                                       │
+│ 08:04:30  tests                pass  go test -C /home/dev/acme-api ./... 2>… │
+│ 08:04:32  claude-sonnet-5-5    Tests pass: acme-api and http are ok. auth, … │
+│ 08:04:41  Explore aa3b         - /home/dev/acme-api/internal/auth/refresh.g… │
+│ 08:04:43  claude-sonnet-5-5    Auth agent is done. Still waiting on the sto… │
+│ 08:04:47  Explore aa4b         Blocking or failure paths                     │
+│ 08:04:49  claude-sonnet-5-5    Two of three agents are done (auth, store/ht… │
+│ 08:04:53  Explore aa5b         - Entries expire on read only (:58), so a ke… │
+│ 08:04:57  claude-sonnet-5-5    1. Tests: acme-api and http pass. auth, cach… │
+└──────────────────────────────────────────────────────────────────────────────┘
+tests 1/1 · tool failures 0 · t table · tab next · q quit

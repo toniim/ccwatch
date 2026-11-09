@@ -1,0 +1,2 @@
+{"ts":"2026-11-09T09:02:00.000000000Z","session_id":"d4e5f600-0000-4000-8000-00000000a002","cwd":"/work/trees/explore-bug","hook_event_name":"SessionStart","orca_terminal":"term_a1a1a1a1-0000-4000-8000-0000000000a1","source":"startup"}
+{"ts":"2026-11-09T09:02:10.000000000Z","session_id":"d4e5f600-0000-4000-8000-00000000a002","cwd":"/work/trees/explore-bug","hook_event_name":"Stop","orca_terminal":"term_a1a1a1a1-0000-4000-8000-0000000000a1","last_assistant_message":"done","last_assistant_message_chars":4}

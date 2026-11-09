@@ -1,0 +1,1 @@
+{"ok": true, "result": {"workers": [{"dispatchId": "ctx_zzz999", "taskId": "task_9", "state": "ready", "liveness": "live", "terminal": "term_ffff0000-0000-4000-8000-00000000ffff", "workspace": "w9::/work/trees/other"}]}}

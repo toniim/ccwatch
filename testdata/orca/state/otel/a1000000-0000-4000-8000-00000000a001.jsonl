@@ -1,0 +1,1 @@
+{"event":"api_request","attrs":{"session.id":"a1000000-0000-4000-8000-00000000a001","model":"claude-sonnet-5-5","input_tokens":4,"output_tokens":300,"cache_read_tokens":9000,"cache_creation_tokens":6000,"cost_usd":0.01}}

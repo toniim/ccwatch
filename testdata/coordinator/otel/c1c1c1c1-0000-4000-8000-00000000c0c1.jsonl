@@ -1,0 +1,1 @@
+{"event": "api_request", "attrs": {"session.id": "c1c1c1c1-0000-4000-8000-00000000c0c1", "model": "claude-haiku-5-5", "input_tokens": 2, "output_tokens": 50, "cache_read_tokens": 0, "cache_creation_tokens": 5000, "cost_usd": 0.01, "query_source": "sdk"}}

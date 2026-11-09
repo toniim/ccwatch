@@ -1,0 +1,30 @@
+{
+ "ok": true,
+ "result": {
+  "workers": [
+   {
+    "dispatchId": "ctx_aaa111",
+    "taskId": "task_1",
+    "state": "succeeded",
+    "liveness": "exited",
+    "terminal": "term_a1a1a1a1-0000-4000-8000-0000000000a1",
+    "workspace": "w1::/work/trees/explore-bug"
+   },
+   {
+    "dispatchId": "ctx_bbb222",
+    "taskId": "task_2",
+    "state": "ready",
+    "liveness": "live",
+    "terminal": "term_b2b2b2b2-0000-4000-8000-0000000000b2",
+    "workspace": "w2::/work/trees/fix-refresh"
+   },
+   {
+    "dispatchId": "ctx_ccc333",
+    "taskId": "task_3",
+    "state": "queued",
+    "liveness": "unverifiable",
+    "workspace": "w3::/work/trees/verify"
+   }
+  ]
+ }
+}

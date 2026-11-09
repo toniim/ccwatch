@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "npm test"}]}],
+    "SubagentStop": [{"hooks": [{"type": "command", "command": "/usr/local/bin/notify"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "/usr/local/bin/notify"}, {"type": "command", "command": "/opt/ccwatch hook", "async": true}]}]
+  }
+}

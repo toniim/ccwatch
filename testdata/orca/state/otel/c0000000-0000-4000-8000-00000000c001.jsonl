@@ -1,0 +1,3 @@
+{"event":"api_request","attrs":{"session.id":"c0000000-0000-4000-8000-00000000c001","model":"claude-opus-5-5","input_tokens":4,"output_tokens":300,"cache_read_tokens":12000,"cache_creation_tokens":8000,"cost_usd":0.01}}
+{"event":"api_request","attrs":{"session.id":"c0000000-0000-4000-8000-00000000c001","model":"claude-haiku-5-5","input_tokens":2,"output_tokens":100,"cache_read_tokens":0,"cache_creation_tokens":30000,"cost_usd":0.01,"agent_id":"ae1111111111"}}
+{"event":"api_request","attrs":{"session.id":"c0000000-0000-4000-8000-00000000c001","model":"claude-opus-5-5","input_tokens":4,"output_tokens":200,"cache_read_tokens":20000,"cache_creation_tokens":500,"cost_usd":0.01}}

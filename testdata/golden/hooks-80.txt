@@ -1,0 +1,36 @@
+ccwatch  session 10000002 (ended)  cwd /tmp/acme-api
+┌─ .claude/agents/ ─────────────────────────────────────────────── [ /agents ] ┐
+│ ├ general-purpose  built-in                                                  │
+│     model: claude-haiku-5-5                                                  │
+│                                                                              │
+│ settings.json                                                                │
+│ hooks: PostToolUse×1 Stop×2 SubagentStop×1                                   │
+│ ccwatch hooks: present                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+╎                       CLAUDE-HAIKU-5-5 · main session                        ╎
+╎                                  idle [   ]                                  ╎
+╎                                                                              ╎
+╎ [✓] Run echo alpha -> general-purpose x2                                     ╎
+╎                                                                              ╎
+╎ main context                                                       67.7k tok ╎
+╎ window unknown · cost $0.0393                                                ╎
+└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+          » Task tool · 2 subagents · each in its own context window «          
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ general-purpose   ■ ■                                        ██████████ 100% │
+│ claude-haiku-5-5  ○ done                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌╌ back to claude-haiku-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
+╎ subagents processed   225.6k tok  ██████████████████                         ╎
+╎ main received ≈       2 tok       ██░░░░░░░░░░░░░░░░                         ╎
+╎ bars use a log scale · leverage ×112796 · peak subagent ctx 61.0k            ╎
+└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+┌─ session log ───────────────────────────────────────────── [ stream: ended ] ┐
+│ 07:53:00  general-purpose aa1b started                                       │
+│ 07:53:00  general-purpose aa2b started                                       │
+│ 07:53:00  general-purpose aa1b alpha                                         │
+│ 07:53:00  general-purpose aa2b beta                                          │
+│ 07:53:00  claude-haiku-5-5     DONE                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+tests 0/0 · tool failures 1 · t table · tab next · q quit

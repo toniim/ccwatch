@@ -1,0 +1,2 @@
+{"ts": "2026-11-09T10:00:10.000000000Z", "session_id": "c1c1c1c1-0000-4000-8000-00000000c0c1", "cwd": "/work/coordinator", "hook_event_name": "SessionStart", "orca_terminal": "term_d8ff9415-e784-472a-8149-1bb1516fb684", "source": "startup"}
+{"ts": "2026-11-09T10:00:40.000000000Z", "session_id": "c1c1c1c1-0000-4000-8000-00000000c0c1", "cwd": "/work/coordinator", "hook_event_name": "Stop", "orca_terminal": "term_d8ff9415-e784-472a-8149-1bb1516fb684", "last_assistant_message": "done"}

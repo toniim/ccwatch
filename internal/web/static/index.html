@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ccwatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Iosevka+Charon+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header id="bar">
+  <span class="brand">ccwatch</span>
+  <label class="field">session <select id="session" aria-label="session"><option>loading…</option></select></label>
+  <label class="chk"><input type="checkbox" id="follow" checked> follow latest</label>
+  <div class="seg" role="group" aria-label="view">
+    <button id="v-dash" class="on" type="button">dashboard</button>
+    <button id="v-table" type="button">table</button>
+  </div>
+  <span id="live" class="pill off">connecting</span>
+</header>
+<div id="cwd" class="muted"></div>
+
+<main id="dash">
+  <section class="top">
+    <div class="panel blue" id="agents">
+      <h2>.claude/agents/ <span class="tag">[ /agents ]</span></h2>
+      <div id="agents-body"></div>
+    </div>
+    <div class="panel purple dashed" id="main">
+      <h2 id="main-title" class="center">main session</h2>
+      <div id="main-state" class="center muted"></div>
+      <div id="worker-line" class="muted"></div>
+      <div id="run" class="muted"></div>
+      <ul id="plan"></ul>
+      <div class="ctx"><span class="muted">main context</span><span id="ctx-val" class="green"></span></div>
+      <div class="bar"><i id="ctx-bar"></i></div>
+      <div id="ctx-note" class="muted"></div>
+    </div>
+  </section>
+
+  <div id="arrow" class="center muted"></div>
+  <section id="lanes"></section>
+  <div id="orca-arrow" class="center muted" hidden></div>
+  <section id="orca-lane"></section>
+
+  <section class="panel green dashed" id="back">
+    <h2 id="back-title">back to main · summaries only <span class="tag">[ log scale ]</span></h2>
+    <div class="brow"><span class="muted">subagents processed</span><b id="b-proc" class="blue-t"></b><div class="bar"><i id="b-proc-bar" class="blue-f"></i></div></div>
+    <div class="brow"><span class="muted">main received ≈</span><b id="b-recv" class="green"></b><div class="bar"><i id="b-recv-bar" class="green-f"></i></div></div>
+    <div id="b-note" class="muted"></div>
+  </section>
+
+  <section class="panel grey" id="logbox">
+    <h2>session log <span class="tag" id="log-tag">[ stream: live ]</span></h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<main id="tbl" hidden>
+  <table>
+    <thead><tr><th>id</th><th>type</th><th>description</th><th>model</th><th>state</th><th>tokens</th><th>peak</th><th>time</th><th>summary</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</main>
+
+<footer id="foot" class="muted"></footer>
+<script src="/app.js"></script>
+</body>
+</html>

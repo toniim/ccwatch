@@ -1,0 +1,44 @@
+ccwatch  session c0000000 (active)  cwd /work/coordinator
+┌─ .claude/agents/ ─────────────────────────────────────────────── [ /agents ] ┐
+│ ├ explore.md  (Explore)                                                      │
+│     model: haiku                                                             │
+│     tools: Glob, Grep, Read, Bash                                            │
+│                                                                              │
+│ settings.json                                                                │
+│ hooks: PostToolUse×1 Stop×2 SubagentStop×1                                   │
+│ ccwatch hooks: present                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+╎                        CLAUDE-OPUS-5-5 · main session                        ╎
+╎                             orchestrating [ | ]                              ╎
+╎                                                                              ╎
+╎ orca run: Fix the token refresh bug                                          ╎
+╎ [✓] Map the token refresh bug -> worker explore-bug                          ╎
+╎ [|] Patch refresh in isolation -> worker fix-refresh                         ╎
+╎ [ ] Verify and run tests -> worker verify                                    ╎
+╎                                                                              ╎
+╎ main context                                                       20.5k tok ╎
+╎ window unknown · cost $0.0300                                                ╎
+└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+          » Task tool · 1 subagents · each in its own context window «          
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Explore           ■                                          ██████████ 100% │
+│ claude-haiku-5-5  ○ done                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+               » Orca Run · 3 workers · each in its own session «               
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ orca workers      ■ ▣ □                                      ███░░░░░░░  33% │
+│ claude-sonnet-5-5 ○ 1 running                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌╌ back to claude-opus-5-5 · summaries only ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ [ log scale ] ┐
+╎ subagents processed   30.1k tok   ██████████████████                         ╎
+╎ main received ≈       9 tok       ████░░░░░░░░░░░░░░                         ╎
+╎ bars use a log scale · leverage ×3345 · peak subagent ctx 30.0k              ╎
+└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+┌─ session log ────────────────────────────────────────────── [ stream: live ] ┐
+│ 09:00:02  you                  fix the token refresh bug with three workers  │
+│ 09:00:08  Explore ae11         started                                       │
+│ 09:00:20  Explore ae11         refresh() skips the lock in two paths         │
+│ 09:00:30  claude-opus-5-5      Workers are running; waiting for the patch t… │
+└──────────────────────────────────────────────────────────────────────────────┘
+tests 0/0 · tool failures 0 · t table · tab next · q quit
