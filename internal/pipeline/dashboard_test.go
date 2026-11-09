@@ -327,10 +327,10 @@ func TestParseRun(t *testing.T) {
 	if state.Build(resumed, nil).Ended {
 		t.Error("SessionStart after SessionEnd must reopen the session")
 	}
-	// task-notification prompts are injected by Claude Code, not typed by the user
+	// task-notification prompts are injected by Claude Code: a notice row, never a "you" row
 	n := ev(0, "UserPromptSubmit")
 	n.Prompt = "<task-notification>\nbackground task done"
-	if s := state.Build([]state.Event{n}, nil); len(s.Log) != 0 || !s.Working {
+	if s := state.Build([]state.Event{n}, nil); len(s.Log) != 1 || s.Log[0].Kind != "notice" || !s.Working {
 		t.Errorf("task-notification: log=%v working=%v", s.Log, s.Working)
 	}
 	if len(d.Lanes) != 0 {
@@ -363,7 +363,7 @@ func TestHookKeepsPrompt(t *testing.T) {
 	long := strings.Repeat("p", 500)
 	hook.Run(strings.NewReader(`{"session_id":"s9","hook_event_name":"UserPromptSubmit","prompt":"`+long+`"}`), dir, time.Now())
 	evs := state.LoadEvents(dir, "s9")
-	if len(evs) != 1 || len(evs[0].Prompt) != 200 {
+	if len(evs) != 1 || len(evs[0].Prompt) != 500 || evs[0].PromptChars != 500 || evs[0].PromptKind != "" {
 		t.Fatalf("events = %+v", evs)
 	}
 }

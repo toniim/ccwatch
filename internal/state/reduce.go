@@ -2,6 +2,7 @@ package state
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -28,11 +29,13 @@ type Subagent struct {
 
 // LogEntry is one row of the session log.
 type LogEntry struct {
-	TS   time.Time `json:"ts"`
-	Kind string    `json:"kind"` // you | agent | test | model
-	Who  string    `json:"who"`
-	Text string    `json:"text"`
-	Tag  string    `json:"tag,omitempty"`
+	TS        time.Time `json:"ts"`
+	Kind      string    `json:"kind"` // you | agent | test | model | notice
+	Who       string    `json:"who"`
+	Text      string    `json:"text"`
+	Tag       string    `json:"tag,omitempty"`
+	Key       string    `json:"key,omitempty"`        // prompt rows: p<event index>, the handle of /api/prompt
+	FullChars int       `json:"full_chars,omitempty"` // prompt rows: rune length of the display text when Text is only a preview
 }
 
 // Session is the reduced view of one Claude Code session.
@@ -81,6 +84,45 @@ func (s Session) Leverage() float64 {
 
 // IsTestCommand reports whether a Bash command runs a test suite.
 func IsTestCommand(cmd string) bool { _, ok := TestCommand(cmd); return ok }
+
+// PromptKey is the row key of the prompt stored as events[i].
+func PromptKey(i int) string { return "p" + strconv.Itoa(i) }
+
+// promptEntry builds the log row of the UserPromptSubmit stored as events[i]:
+// a one-line preview; the full text is fetched by key.
+func promptEntry(ts time.Time, e Event, i int) LogEntry {
+	kind, text, status := PromptView(e)
+	if kind == KindTaskNotification {
+		if text == "" {
+			text = "background task"
+		}
+		return LogEntry{TS: ts, Kind: "notice", Who: "notice", Text: preview(text), Tag: status}
+	}
+	le := LogEntry{TS: ts, Kind: "you", Who: "you", Key: PromptKey(i)}
+	if kind == KindOrcaTask {
+		le.Tag = KindOrcaTask
+		if strings.TrimSpace(text) == "" {
+			le.Text = OrcaTaskPrefix + OrcaNoBrief
+			return le
+		}
+		le.Text = OrcaTaskPrefix + preview(text)
+	} else {
+		le.Text = preview(text)
+	}
+	if t := strings.TrimSpace(text); t != FirstLine(t) || utf8.RuneCountInString(t) > PreviewRunes {
+		le.FullChars = utf8.RuneCountInString(t)
+	}
+	return le
+}
+
+// preview is the first line of s cut to PreviewRunes runes.
+func preview(s string) string {
+	l := FirstLine(s)
+	if r := []rune(l); len(r) > PreviewRunes {
+		return string(r[:PreviewRunes])
+	}
+	return l
+}
 
 var mdStrip = strings.NewReplacer("#", "", "*", "", "`", "")
 
@@ -162,7 +204,7 @@ func Build(events []Event, otel []Record) Session {
 	}
 
 	sawStart := false
-	for _, e := range events {
+	for ei, e := range events {
 		if s.ID == "" {
 			s.ID = e.SessionID
 		}
@@ -194,9 +236,8 @@ func Build(events []Event, otel []Record) Session {
 			s.Ended = true
 		case "UserPromptSubmit":
 			s.Working = true
-			// background-task completions arrive as injected prompts; they are not the user
-			if e.Prompt != "" && !strings.HasPrefix(e.Prompt, "<task-notification") {
-				s.Log = append(s.Log, LogEntry{TS: ts, Kind: "you", Who: "you", Text: FirstLine(e.Prompt)})
+			if e.Prompt != "" || e.PromptKind != "" || e.PromptChars > 0 {
+				s.Log = append(s.Log, promptEntry(ts, e, ei))
 			}
 		case "Stop":
 			s.Working = false

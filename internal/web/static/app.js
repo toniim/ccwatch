@@ -157,6 +157,43 @@ function renderBack(d) {
   $("log-tag").textContent = "[ stream: " + (d.ended ? "ended" : "live") + " ]";
 }
 
+// Prompt rows are collapsed by default; the full text is fetched once per key and cached.
+const promptCache = new Map(); // sessionId|key|raw -> text
+const openRows = new Set();    // sessionId|key
+const rawRows = new Set();     // sessionId|key showing the wrapper
+
+async function loadPrompt(sid, key, raw) {
+  const ck = sid + "|" + key + "|" + (raw ? 1 : 0);
+  if (promptCache.has(ck)) return promptCache.get(ck);
+  const r = await fetch("/api/prompt?session=" + encodeURIComponent(sid) + "&key=" + encodeURIComponent(key) + (raw ? "&raw=1" : ""));
+  const text = r.ok ? (await r.json()).text : "(could not load the prompt: " + r.status + ")";
+  if (r.ok) promptCache.set(ck, text);
+  return text;
+}
+
+function fillRow(sid, r, txt) {
+  const rk = sid + "|" + r.key;
+  txt.textContent = "";
+  if (!openRows.has(rk)) {
+    txt.append(r.text + (r.full_chars ? " … (" + r.full_chars + " chars)" : ""));
+    return;
+  }
+  const raw = rawRows.has(rk);
+  const body = h("div", { class: "full" }, "loading…");
+  const head = [];
+  if (r.tag === "orca_task") {
+    const tg = h("button", { class: "wrap-toggle", type: "button" }, raw ? "show task" : "show wrapper");
+    tg.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (rawRows.has(rk)) rawRows.delete(rk); else rawRows.add(rk);
+      fillRow(sid, r, txt);
+    });
+    head.push(tg);
+  }
+  txt.append(...head, body);
+  loadPrompt(sid, r.key, raw).then((t) => { if (body.isConnected) body.textContent = t; });
+}
+
 function renderLog(d) {
   const box = $("log");
   box.textContent = "";
@@ -165,9 +202,22 @@ function renderLog(d) {
     const key = d.sessionId + "|" + r.ts + "|" + r.who + "|" + r.text + "|" + r.tag;
     const isNew = !firstLog && !seenLog.has(key);
     seenLog.add(key);
-    const text = r.kind === "test" ? r.tag + "  " + r.text : r.text;
-    box.append(h("div", { class: "row " + r.kind + (r.tag ? " " + r.tag : "") + (isNew ? " new" : "") },
-      h("span", { class: "t" }, clock(r.ts)), h("span", { class: "who", title: r.who }, r.who), h("span", { class: "txt" }, text)));
+    const text = r.kind === "test" ? r.tag + "  " + r.text : r.kind === "notice" ? (r.tag ? r.tag + "  " : "") + r.text : r.text;
+    const txt = h("span", { class: "txt" }, text);
+    const row = h("div", { class: "row " + r.kind + (r.tag ? " " + r.tag : "") + (isNew ? " new" : "") },
+      h("span", { class: "t" }, clock(r.ts)), h("span", { class: "who", title: r.who }, r.who), txt);
+    if (r.key) {
+      const rk = d.sessionId + "|" + r.key;
+      row.classList.add("more");
+      if (openRows.has(rk)) row.classList.add("open");
+      fillRow(d.sessionId, r, txt);
+      row.addEventListener("click", (ev) => {
+        if (ev.target.closest(".wrap-toggle") || (row.classList.contains("open") && window.getSelection().toString())) return;
+        if (openRows.has(rk)) { openRows.delete(rk); row.classList.remove("open"); } else { openRows.add(rk); row.classList.add("open"); }
+        fillRow(d.sessionId, r, txt);
+      });
+    }
+    box.append(row);
   });
   firstLog = false;
 }

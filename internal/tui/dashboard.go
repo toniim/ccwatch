@@ -403,6 +403,9 @@ func dashboardLines(d view.Dashboard, o Options, logRows int, compact bool) []st
 			} else {
 				who = green.Render(who)
 			}
+		case "notice":
+			who = grey.Render(who)
+			text = grey.Render(strings.TrimSpace(r.Tag + "  " + r.Text))
 		default:
 			who = orange.Render(who)
 		}

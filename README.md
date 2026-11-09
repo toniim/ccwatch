@@ -376,7 +376,7 @@ Everything stays on your machine, in the state directory: `$CCWATCH_STATE`, else
 
 | Path | Written by | Contains |
 |---|---|---|
-| `events/<session>.jsonl` | `ccwatch hook` | A trimmed copy of each hook payload: session id, `cwd`, event name, ids. Your prompt **truncated to 200 characters**; the assistant's last message, subagent prompts, tool results and errors **truncated to 300 characters** (the first part of the text); Bash commands up to 1000 characters. |
+| `events/<session>.jsonl` | `ccwatch hook` | A trimmed copy of each hook payload: session id, `cwd`, event name, ids. Your prompt **in full** (bounded only by the 1 MiB hook stdin cap) with its kind and length; the views show a one-line preview, and the web view fetches the full text from `/api/prompt` only when you expand a row (an Orca dispatch wrapper only on request). The assistant's last message, subagent prompts, tool results and errors **truncated to 300 characters** (the first part of the text); Bash commands up to 1000 characters. |
 | `otel/<session>.jsonl` | `ccwatch serve` | Only `api_request` and `subagent_completed` records (model, token counts, cost, `agent_id`, `query_source`, request ids). Attributes starting with `user.`, `organization.` or `anthropic.` (identity of the signed-in user) are dropped before writing. Files are created with mode 0644. |
 | `ctx/<session>.json` | `ccwatch line` | The context window size. |
 | `workers.json` | `ccwatch` | A short-lived cache of the Orca worker list. |

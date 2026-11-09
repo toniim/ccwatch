@@ -65,7 +65,13 @@ body { font: 14.3px/1.5 "Iosevka Charon Mono", ui-monospace, "JetBrains Mono", "
 #log .row .who { color: var(--orange); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #log .row.you .who { color: var(--fg); font-weight: 700; } #log .row.model .who { color: var(--purple); }
 #log .row.test.pass .who { color: var(--green); } #log .row.test.fail .who { color: var(--red); }
-#log .row .txt { overflow-wrap: anywhere; }
+#log .row .txt { overflow-wrap: anywhere; min-width: 0; }
+#log .row.more:not(.open) .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#log .row.more { cursor: pointer; }
+#log .row.more.open { cursor: default; }
+#log .row .full { white-space: pre-wrap; user-select: text; margin-top: 2px; }
+#log .row .wrap-toggle { float: right; background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: .85em; padding: 0 6px; margin-left: 8px; cursor: pointer; }
+#log .row.notice, #log .row.notice .who { color: var(--muted); }
 #log .row.new { animation: fade .9s ease-out; }
 @keyframes fade { from { background: rgba(169,139,255,.25); } to { background: transparent; } }
 

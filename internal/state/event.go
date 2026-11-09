@@ -76,7 +76,9 @@ type Event struct {
 	Error              string           `json:"error,omitempty"`
 	IsInterrupt        bool             `json:"is_interrupt,omitempty"`
 	LastAssistantMsg   string           `json:"last_assistant_message,omitempty"`
-	Prompt             string           `json:"prompt,omitempty"`                       // UserPromptSubmit text, truncated
+	Prompt             string           `json:"prompt,omitempty"`                       // UserPromptSubmit text, in full
+	PromptKind         string           `json:"prompt_kind,omitempty"`                  // orca_task | paste | task_notification
+	PromptChars        int              `json:"prompt_chars,omitempty"`                 // rune length of the prompt
 	OrcaTerminal       string           `json:"orca_terminal,omitempty"`                // $ORCA_TERMINAL_HANDLE of the hook process
 	OrcaRuns           []string         `json:"orca_runs,omitempty"`                    // run ids in the stdout of an `orca orchestration` Bash call
 	LastAssistantChars int              `json:"last_assistant_message_chars,omitempty"` // rune length before truncation

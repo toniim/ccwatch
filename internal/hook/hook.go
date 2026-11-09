@@ -96,6 +96,16 @@ func Truncate(s string, n int) string {
 	return string(r[:n])
 }
 
+// setPrompt stores the whole prompt (bounded by the stdin cap) with its kind and length.
+func setPrompt(e *state.Event, prompt string) {
+	e.Prompt, e.PromptChars = prompt, utf8.RuneCountInString(prompt)
+	if state.IsTaskNotification(prompt) {
+		e.PromptKind = state.KindTaskNotification
+		return
+	}
+	_, e.PromptKind = state.DisplayPrompt(prompt)
+}
+
 // Convert builds the stored event from a raw hook payload.
 func Convert(data []byte, now time.Time) (state.Event, bool) {
 	var p rawPayload
@@ -106,9 +116,10 @@ func Convert(data []byte, now time.Time) (state.Event, bool) {
 		TS: now.Format(time.RFC3339Nano), SessionID: p.SessionID, Cwd: p.Cwd, Name: p.Name,
 		PromptID: p.PromptID, AgentID: p.AgentID, AgentType: p.AgentType, Source: p.Source,
 		Reason: p.Reason, ToolName: p.ToolName, ToolUseID: p.ToolUseID, DurationMs: p.DurationMs,
-		PermissionMode: p.PermissionMode, Prompt: Truncate(p.Prompt, 200), Error: Truncate(p.Error, maxText), IsInterrupt: p.IsInterrupt,
+		PermissionMode: p.PermissionMode, Error: Truncate(p.Error, maxText), IsInterrupt: p.IsInterrupt,
 		LastAssistantMsg: Truncate(p.LastAssistantMsg, maxText), LastAssistantChars: utf8.RuneCountInString(p.LastAssistantMsg), BackgroundTasks: p.BackgroundTasks,
 	}
+	setPrompt(&e, p.Prompt)
 	if p.ToolInput != nil {
 		in := *p.ToolInput
 		in.Prompt = Truncate(in.Prompt, maxText)

@@ -10,8 +10,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/toniim/ccwatch/internal/state"
 	"github.com/toniim/ccwatch/internal/view"
@@ -74,6 +76,7 @@ func (s *Server) Wrap(next http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/sessions", s.sessions)
 	mux.HandleFunc("/api/state", s.state)
+	mux.HandleFunc("/api/prompt", s.prompt)
 	mux.HandleFunc("/api/stream", s.stream)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		isUI := (r.Method == http.MethodGet || r.Method == http.MethodHead) &&
@@ -147,6 +150,31 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.Src.Dashboard(id))
+}
+
+// prompt serves the full text behind a log row: the display text, or with
+// raw=1 the prompt as submitted (Orca wrapper included).
+func (s *Server) prompt(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	id, code, msg := s.resolve(q)
+	if code != 0 {
+		writeJSON(w, code, map[string]string{"error": msg})
+		return
+	}
+	key := q.Get("key")
+	i, err := strconv.Atoi(strings.TrimPrefix(key, "p"))
+	evs := state.LoadEvents(s.Src.Dir, id)
+	if !strings.HasPrefix(key, "p") || err != nil || i < 0 || i >= len(evs) || evs[i].Name != "UserPromptSubmit" || evs[i].Prompt == "" || state.PromptKey(i) != key {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "unknown key"})
+		return
+	}
+	e := evs[i]
+	kind, text, _ := state.PromptView(e)
+	raw := q.Get("raw") == "1"
+	if raw {
+		text = e.Prompt
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"key": key, "kind": kind, "raw": raw, "text": text, "chars": utf8.RuneCountInString(text)})
 }
 
 func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
