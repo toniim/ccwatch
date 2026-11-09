@@ -3,8 +3,9 @@ const $ = (id) => document.getElementById(id);
 const SPIN = "|/-\\";
 let spinN = 0;
 let es = null;
-let follow = true;
-let current = "";       // session id the picker shows
+const pinned = new URLSearchParams(location.search).get("session") || "";
+let follow = !pinned;   // ?session=<id> pins that session on load
+let current = pinned;   // session id the picker shows
 let view = "dash";
 let lastData = null;
 let lastList = "";
@@ -30,9 +31,17 @@ function setLive(ok) {
   p.className = "pill" + (ok ? "" : " off");
 }
 
+// syncURL keeps ?session=<id> in step with the pin: set while pinned, gone while following latest.
+function syncURL() {
+  const u = new URL(location.href);
+  if (follow || !current) u.searchParams.delete("session"); else u.searchParams.set("session", current);
+  if (u.href !== location.href) history.replaceState(null, "", u);
+}
+
 function connect() {
   if (es) es.close();
   const q = follow || !current ? "latest" : current;
+  syncURL();
   es = new EventSource("/api/stream?session=" + encodeURIComponent(q));
   es.onopen = () => setLive(true);
   es.onerror = () => setLive(false);
@@ -45,8 +54,7 @@ function renderPicker(list) {
   sel.textContent = "";
   if (!list.length) sel.append(h("option", {}, "no sessions yet"));
   for (const s of list) {
-    const label = [s.id.slice(0, 8), s.model || "?", base(s.cwd), s.subagents + " agents" + (s.live ? " · " + s.live + " live" : "") + (s.ended ? " · ended" : "")].join(" · ");
-    const o = h("option", { value: s.id }, label);
+    const o = h("option", { value: s.id }, s.label);
     if (s.id === current) o.selected = true;
     sel.append(o);
   }
@@ -61,7 +69,7 @@ function render(d) {
   renderMain(d);
   const showTask = d.lanes.length > 0 || !d.orcaLane;
   $("arrow").hidden = !showTask;
-  $("arrow").textContent = "» Task tool · " + d.subagents + " subagents · each in its own context window «";
+  $("arrow").textContent = "» Task tool · " + d.subagents + (d.subagents === 1 ? " subagent" : " subagents") + " · each in its own context window «";
   renderLanes($("lanes"), d.lanes);
   $("orca-arrow").hidden = !d.orcaLane;
   $("orca-arrow").textContent = d.orcaHeader || "";
@@ -204,4 +212,9 @@ setInterval(() => {
   for (const n of document.querySelectorAll("#plan .mk")) if (n.dataset.mark === "|") n.textContent = "[" + SPIN[spinN % 4] + "]";
 }, 150);
 
-connect();
+// Start: honour ?session=<id> only if that session exists, else follow latest.
+fetch("/api/sessions").then((r) => r.json()).catch(() => []).then((list) => {
+  if (pinned && !(list || []).some((s) => s.id === pinned)) { follow = true; current = ""; }
+  $("follow").checked = follow;
+  connect();
+});

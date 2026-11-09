@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"net"
 	"net/http"
@@ -29,6 +30,8 @@ type SessionInfo struct {
 	Ended     bool   `json:"ended"`
 	Subagents int    `json:"subagents"`
 	Live      int    `json:"live"`
+	State     string `json:"state"` // ended | running (live agents) | active
+	Label     string `json:"label"` // picker text: id · state · agents · model · dir
 	Updated   string `json:"updated"`
 }
 
@@ -105,6 +108,7 @@ func (s *Server) listSessions() []SessionInfo {
 	for _, id := range ids {
 		ss := state.Load(s.Src.Dir, id)
 		info := SessionInfo{ID: id, Cwd: ss.Cwd, Model: ss.Model, Ended: ss.Ended, Subagents: len(ss.Subagents), Live: ss.Live()}
+		info.State, info.Label = sessionLabel(id, ss)
 		if t := state.ModTime(s.Src.Dir, id); !t.IsZero() {
 			info.Updated = t.UTC().Format(time.RFC3339)
 		}
@@ -202,4 +206,40 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 		case <-tk.C:
 		}
 	}
+}
+
+// sessionLabel builds the picker text, state first so a narrow select never cuts it:
+// "<id8> · <ended|active|running> · <agents> · <model> · <dir>".
+func sessionLabel(id string, ss state.Session) (string, string) {
+	total, live := len(ss.Subagents), ss.Live()
+	st := "active"
+	switch {
+	case ss.Ended:
+		st = "ended"
+	case live > 0:
+		st = "running"
+	}
+	agents := "no agents"
+	switch {
+	case live > 0:
+		agents = fmt.Sprintf("%d of %s running", live, view.Plural(total, "agent"))
+	case total > 0:
+		agents = view.Plural(total, "agent") + " done"
+	}
+	model := ss.Model
+	if model == "" {
+		model = "?"
+	}
+	if len(id) > 8 {
+		id = id[:8]
+	}
+	dir := strings.TrimRight(ss.Cwd, "/")
+	if i := strings.LastIndex(dir, "/"); i >= 0 {
+		dir = dir[i+1:]
+	}
+	parts := []string{id, st, agents, model}
+	if dir != "" {
+		parts = append(parts, dir)
+	}
+	return st, strings.Join(parts, " · ")
 }

@@ -11,7 +11,7 @@ ccwatch  session c0000000 (active)  cwd /work/coordinator
 │                                              │ ╎ main context                                              20.5k tok ╎
 │                                              │ ╎ window unknown · cost $0.0300                                       ╎
 └──────────────────────────────────────────────┘ └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
-                              » Task tool · 1 subagents · each in its own context window «                              
+                              » Task tool · 1 subagent · each in its own context window «                               
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Explore           ■                                                                      ██████████████████████ 100% │
 │ claude-haiku-5-5  ○ done                                                                                             │

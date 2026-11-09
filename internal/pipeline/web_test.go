@@ -67,7 +67,8 @@ func TestWebAPIs(t *testing.T) {
 	if code := getJSON(t, srv.URL+"/api/sessions", &list); code != 200 || len(list) != 2 {
 		t.Fatalf("sessions: %d %+v", code, list)
 	}
-	if list[0].ID != sessionID || list[1].ID != realisticID || list[1].Subagents != 3 || !list[1].Ended || list[1].Model != "claude-sonnet-5-5" {
+	if list[0].ID != sessionID || list[1].ID != realisticID || list[1].Subagents != 3 || !list[1].Ended || list[1].Model != "claude-sonnet-5-5" ||
+		list[1].State != "ended" || !strings.Contains(list[1].Label, " · ended · 3 agents done · claude-sonnet-5-5") {
 		t.Errorf("sessions order/content: %+v", list)
 	}
 

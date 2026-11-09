@@ -292,7 +292,7 @@ func Build(s state.Session, ext Ext) Dashboard {
 				lane.Status = "queued"
 			}
 			d.OrcaLane = &lane
-			d.OrcaHeader = fmt.Sprintf("» Orca Run · %d workers · each in its own session «", lane.Total)
+			d.OrcaHeader = fmt.Sprintf("» Orca Run · %s · each in its own session «", Plural(lane.Total, "worker"))
 		}
 	} else {
 		d.PlanSource = "prompts"
@@ -538,4 +538,12 @@ func Clock(t time.Time, loc *time.Location) string {
 		return "--:--:--"
 	}
 	return t.In(loc).Format("15:04:05")
+}
+
+// Plural renders a count with its noun in the right number: "1 agent", "3 agents".
+func Plural(n int, noun string) string {
+	if n == 1 {
+		return fmt.Sprintf("1 %s", noun)
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }

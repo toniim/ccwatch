@@ -345,7 +345,7 @@ func dashboardLines(d view.Dashboard, o Options, logRows int, compact bool) []st
 		out = append(out, box("", "", laneBody(l, w, o.Frame, w < 110), w, solid(grey))...)
 	}
 	if len(d.Lanes) > 0 || d.OrcaLane == nil {
-		out = append(out, center(grey.Render(fmt.Sprintf("» Task tool · %d subagents · each in its own context window «", d.Subagents)), w))
+		out = append(out, center(grey.Render(fmt.Sprintf("» Task tool · %s · each in its own context window «", view.Plural(d.Subagents, "subagent"))), w))
 		if len(d.Lanes) == 0 {
 			out = append(out, center(grey.Render("no lanes yet"), w))
 		}
