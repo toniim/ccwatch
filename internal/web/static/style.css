@@ -112,8 +112,10 @@ body.resizing { cursor: col-resize; user-select: none; }
 #tree .dot.running { background: var(--orange); animation: pulse 1s ease-in-out infinite; }
 #tree .dot.ended { background: var(--muted); opacity: .6; }
 #tree .dir { flex: 1 1 0; min-width: 0; display: flex; overflow: hidden; }
-#tree .dir .h { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
-#tree .dir .t { flex: none; white-space: pre; }
+/* head shrinks first (never below one character plus "…"), then the tail loses whole characters from its LEFT (ellipsis there), so the end of the name always shows */
+#tree .dir .h { flex: 0 1000 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+#tree .dir .t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; direction: rtl; }
+#tree .dir .t > span { direction: ltr; unicode-bidi: bidi-override; }
 #tree .dir .pre { flex: none; color: var(--muted); }
 #tree .row.ended-row .dir { color: var(--muted); }
 #tree .model { flex: none; width: 10ch; color: var(--blue); overflow: hidden; text-overflow: ellipsis; }

@@ -70,7 +70,7 @@ function nameNode(name, cut) {
   if (cut) { n.append(h("span", { class: "pre" }, "…")); name = name.slice(cut); }
   const chars = [...name];
   if (chars.length <= TAIL + 2) n.append(h("span", { class: "h" }, name));
-  else n.append(h("span", { class: "h" }, chars.slice(0, -TAIL).join("")), h("span", { class: "t" }, chars.slice(-TAIL).join("")));
+  else n.append(h("span", { class: "h" }, chars.slice(0, -TAIL).join("")), h("span", { class: "t" }, h("span", {}, chars.slice(-TAIL).join(""))));
   return n;
 }
 // sharedCut returns how many leading characters every name has in common, cut back to a
@@ -124,7 +124,7 @@ function nodeRow(n, depth, selId, cut) {
     const s = n.s;
     sel = h("button", { class: "sel", type: "button", title: s.label },
       h("span", { class: "dot " + s.state }), nameNode(dirName(s), cut));
-    if (s.subagents > 0) sel.append(h("span", { class: "badge" }, s.live + "/" + s.subagents + " agents"));
+    if (s.subagents > 0) sel.append(h("span", { class: "badge", title: s.live + " of " + (s.subagents === 1 ? "1 agent" : s.subagents + " agents") + " running" }, s.live + "/" + s.subagents));
     sel.append(h("span", { class: "model" }, s.model || ""));
     sel.append(h("span", { class: "sid" }, s.id.slice(0, 8)));
     sel.addEventListener("click", () => pick(s.id));
