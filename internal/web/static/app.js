@@ -283,6 +283,7 @@ function render(d) {
   renderBack(d);
   renderLog(d);
   renderTable(d);
+  if (view === "flow") renderFlow(d);
   $("foot").textContent = "tests " + d.testsPass + "/" + (d.testsPass + d.testsFail) + " · tool failures " + d.toolFailures +
     " · cost $" + d.costUsd.toFixed(4) + " · peak subagent ctx " + tok(d.peakCtx);
 }
@@ -583,12 +584,198 @@ function renderTable(d) {
   }
 }
 
-function setView(v) {
+// ---- flow view: one session as a picture of who does what ----
+const REVIEWER_TYPES = ["code-reviewer", "kongming", "advisor"];
+const FLOW_MAX_CARDS = 12;
+const firstLine = (t) => ((t || "").split("\n").find((l) => l.trim()) || "").trim();
+const clip = (t, n) => { const c = [...t]; return c.length > n ? c.slice(0, n - 1).join("") + "…" : t; };
+
+// flowFailures counts failing tool rows by (actor, tool, summary); keys seen 2+ times are repeated errors.
+function flowFailures(log) {
+  const m = new Map();
+  for (const r of log) for (const t of r.kind === "tools" ? (r.items || []) : [r]) {
+    if (t.kind !== "tool" || t.tag !== "fail") continue;
+    const k = (t.actor || "") + "\u0000" + (t.tool || "") + "\u0000" + (t.summary || "");
+    const e = m.get(k) || { tool: t.tool || "", summary: t.summary || "", n: 0 };
+    e.n++; m.set(k, e);
+  }
+  return [...m.values()].filter((e) => e.n >= 2).sort((a, b) => b.n - a.n);
+}
+
+// flowCards picks the subagent rows to draw: all running ones plus the most recent finished, up to the cap.
+function flowCards(rows) {
+  if (rows.length <= FLOW_MAX_CARDS) return { shown: rows, hidden: 0 };
+  const running = rows.filter((r) => r.state === "running");
+  const room = Math.max(0, FLOW_MAX_CARDS - running.length);
+  const rest = rows.filter((r) => r.state !== "running");
+  const keep = new Set([...running, ...rest.slice(rest.length - room)]);
+  const shown = rows.filter((r) => keep.has(r));
+  return { shown, hidden: rows.length - shown.length };
+}
+
+function flowCard(r) {
+  const c = h("div", { class: "fcard " + r.state, "data-edge": "in" });
+  c.append(h("div", { class: "fc-h" }, h("b", {}, r.type), h("span", { class: "badge " + r.state }, r.state)));
+  c.append(h("div", { class: "fc-m" }, r.model || "?"));
+  if (r.description) c.append(h("div", { class: "fc-d", title: r.description }, r.description));
+  const meta = tok(r.tokens) + " tok" + (r.durationMs ? " · " + dur(r.durationMs) : "");
+  c.append(h("div", { class: "fc-t muted" }, meta));
+  if (r.state === "done" && firstLine(r.summary)) c.append(h("div", { class: "fc-s", title: r.summary }, firstLine(r.summary)));
+  return c;
+}
+
+function flowTaskCard(t) {
+  const st = /run|progress|active|dispatched/i.test(t.status) ? "running" : /fail|error|abort/i.test(t.status) ? "failed" : /done|complete|succe|finish/i.test(t.status) ? "done" : "";
+  const c = h("div", { class: "fcard " + st, "data-edge": "in" });
+  c.append(h("div", { class: "fc-h" }, h("b", { title: t.title }, t.title || t.id), h("span", { class: "badge " + st }, t.status || "?")));
+  if (t.workerName) c.append(h("div", { class: "fc-m" }, t.workerName));
+  return c;
+}
+
+function flowGroup(label, cards, extra) {
+  const g = h("div", { class: "fgroup" }, h("div", { class: "fg-l", "data-edge": "label" }, label));
+  if (extra) g.append(extra);
+  g.append(h("div", { class: "fcards" }, ...cards));
+  return g;
+}
+
+function renderFlow(d) {
+  const box = $("flow");
+  const sy = window.scrollY;
+  const rows = d.table.filter((r) => !REVIEWER_TYPES.includes(r.type));
+  const revs = d.table.filter((r) => REVIEWER_TYPES.includes(r.type));
+  const tasks = d.run && d.run.tasks ? d.run.tasks : [];
+  const model = d.model || "main";
+
+  // header: one chip per distinct model with its roles
+  const roles = new Map([[model, ["main"]]]);
+  for (const r of d.table) {
+    const m = r.model || "?";
+    if (!roles.has(m)) roles.set(m, []);
+    const l = roles.get(m);
+    const cnt = d.table.filter((x) => (x.model || "?") === m && x.type === r.type).length;
+    const label = r.type + (cnt > 1 ? " ×" + cnt : "");
+    if (!l.some((x) => x.split(" ×")[0] === r.type)) l.push(label);
+  }
+  const head = h("div", { class: "fhead" }, h("b", {}, roles.size + (roles.size === 1 ? " MODEL" : " MODELS") + " · 1 SESSION"));
+  for (const [m, l] of roles) head.append(h("span", { class: "chip" }, h("b", {}, m), h("span", { class: "muted" }, " " + l.join(", "))));
+
+  // main node
+  const main = h("div", { class: "fmain panel purple", "data-edge": "main" });
+  const title = h("div", { class: "fm-t" }, model);
+  if (d.profile) title.append(" ", h("span", { class: "prof-name" }, d.profile));
+  main.append(title);
+  const live = d.state === "orchestrating" || d.state === "working";
+  main.append(h("div", { class: "muted" }, (d.ended ? "ended · " : "") + d.state + " ", h("span", { class: "spin" }, live && !d.ended ? SPIN[spinN % 4] : "")));
+  const now = h("div", { class: "nowline" });
+  setNow(now, d.now);
+  main.append(now);
+  main.append(h("div", { class: "ctx" }, h("span", { class: "muted" }, "context"), h("span", { class: "green" }, tok(d.ctx) + " tok" + (d.ctxKnown ? " · " + d.ctxPct + "%" : ""))));
+  main.append(h("div", { class: "bar" }, h("i", { style: "width:" + (d.ctxKnown ? d.ctxPct : 0) + "%" })));
+
+  // reviewer panel
+  let rev = null;
+  if (revs.length) {
+    rev = h("div", { class: "frev panel blue", "data-edge": "rev" }, h("h2", {}, "reviewers ", h("span", { class: "tag" }, "calls " + revs.length)));
+    for (const r of revs) {
+      const txt = r.state === "running" ? r.description : firstLine(r.summary) || r.description;
+      rev.append(h("div", { class: "fr-row " + r.state, title: txt }, h("b", {}, r.type), " ", h("span", { class: "badge " + r.state }, r.state), " ", h("span", { class: "muted" }, clip(txt || "", 80))));
+    }
+  }
+  const top = h("div", { class: "ftop" + (rev ? " has-rev" : "") });
+  if (rev) top.append(rev);
+  top.append(main);
+
+  // fan-out groups
+  const groups = h("div", { class: "fgroups" });
+  const { shown, hidden } = flowCards(rows);
+  if (rows.length) {
+    const more = hidden ? h("span", { class: "chip more" }, "+" + hidden + " earlier") : null;
+    groups.append(flowGroup("delegate → " + rows.length + (rows.length === 1 ? " subagent" : " subagents"), shown.map(flowCard), more));
+  }
+  if (tasks.length) groups.append(flowGroup("dispatch → " + tasks.length + (tasks.length === 1 ? " Orca task" : " Orca tasks"), tasks.map(flowTaskCard)));
+  if (!rows.length && !tasks.length) groups.append(h("div", { class: "fg-l empty", "data-edge": "label" }, "no delegation yet"));
+
+  // return bar, repeated failures
+  const ret = h("div", { class: "fret panel green dashed", "data-edge": "ret" });
+  ret.append(h("span", {}, "back to " + model + " · " + tok(d.back.processed) + " read → " + tok(d.back.received) + " returned" + (d.back.received > 0 ? " · ×" + Math.round(d.leverage) : "")));
+  if (d.testsPass + d.testsFail > 0) ret.append(h("span", { class: d.testsFail ? "bad" : "green" }, "tests " + d.testsPass + " pass / " + d.testsFail + " fail"));
+  if (d.toolFailures > 0) ret.append(h("span", { class: "bad" }, "tool failures " + d.toolFailures));
+  const rep = h("div", { class: "frep" });
+  for (const e of flowFailures(d.log)) rep.append(h("span", { class: "chip bad", title: "same error ×" + e.n + ": " + e.tool + " " + e.summary }, "same error ×" + e.n + ": " + e.tool + " " + clip(e.summary, 48)));
+
+  // key events
+  const ev = h("div", { class: "fev panel grey" }, h("h2", {}, "key events"));
+  const evRows = d.log.filter((r) => r.kind !== "tool" && r.kind !== "tools").slice(-8);
+  if (!evRows.length) ev.append(h("div", { class: "empty" }, "no events yet"));
+  for (const r of evRows) {
+    const text = (r.kind === "test" || r.kind === "notice") && r.tag ? r.tag + "  " + r.text : r.text;
+    ev.append(h("div", { class: "fe-row " + r.kind }, h("span", { class: "t muted" }, clock(r.ts)), h("span", { class: "who" }, r.who || ""), h("span", { class: "tx", title: text }, firstLine(text))));
+  }
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "fsvg");
+  svg.setAttribute("aria-hidden", "true");
+  box.replaceChildren(svg, head, top, groups, ret, rep, ev);
+  drawFlow();
+  window.scrollTo(window.scrollX, sy);
+}
+
+// drawFlow redraws the connectors from element positions: reviewer -> main, main -> each group label, group label -> cards.
+function drawFlow() {
+  const box = $("flow");
+  if (box.hidden) return;
+  const svg = box.querySelector(".fsvg");
+  if (!svg) return;
+  const o = box.getBoundingClientRect();
+  svg.setAttribute("width", Math.round(o.width));
+  svg.setAttribute("height", Math.round(box.scrollHeight));
+  svg.setAttribute("viewBox", "0 0 " + Math.round(o.width) + " " + Math.round(box.scrollHeight));
+  svg.textContent = "";
+  const stacked = !window.matchMedia("(min-width: 900px)").matches;
+  const pos = (el) => { const b = el.getBoundingClientRect(); return { l: b.left - o.left, r: b.right - o.left, t: b.top - o.top, b: b.bottom - o.top, cx: (b.left + b.right) / 2 - o.left, cy: (b.top + b.bottom) / 2 - o.top }; };
+  const line = (x1, y1, x2, y2, cls) => {
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const my = (y1 + y2) / 2;
+    p.setAttribute("d", x1 === x2 || y1 === y2 ? "M" + x1 + " " + y1 + "L" + x2 + " " + y2 : "M" + x1 + " " + y1 + "C" + x1 + " " + my + " " + x2 + " " + my + " " + x2 + " " + y2);
+    p.setAttribute("class", cls);
+    svg.append(p);
+  };
+  const main = box.querySelector(".fmain"), rev = box.querySelector(".frev");
+  if (!main) return;
+  const m = pos(main);
+  if (rev) { const r = pos(rev); if (stacked) line(r.cx, r.b, m.cx, m.t, "wire"); else line(r.r, r.cy, m.l, m.cy, "wire"); }
+  for (const g of box.querySelectorAll(".fgroup")) {
+    const lab = pos(g.querySelector(".fg-l"));
+    line(m.cx, m.b, lab.cx, lab.t, "wire");
+    if (stacked) continue;
+    const cs = [...g.querySelectorAll(".fcard")];
+    const top = Math.min(...cs.map((c) => c.getBoundingClientRect().top)); // only the first row hangs from the label
+    for (const c of cs) {
+      const p = pos(c);
+      if (c.getBoundingClientRect().top > top + 1) { if (c.classList.contains("running")) line(p.cx, p.t - 12, p.cx, p.t, "wire run"); continue; }
+      line(lab.cx, lab.b, p.cx, p.t, "wire" + (c.classList.contains("running") ? " run" : ""));
+    }
+  }
+  const lone = box.querySelector(".fgroups > .fg-l.empty");
+  if (lone) { const l = pos(lone); line(m.cx, m.b, l.cx, l.t, "wire"); }
+  const ret = box.querySelector(".fret");
+  if (ret && !stacked) {
+    const r = pos(ret);
+    for (const g of box.querySelectorAll(".fgroup")) { const gb = pos(g); line(gb.cx, gb.b, gb.cx, r.t, "wire back"); }
+  }
+}
+window.addEventListener("resize", drawFlow);
+if (window.ResizeObserver) new ResizeObserver(drawFlow).observe($("flow"));
+
+function setView(v, save) {
   view = v;
   $("dash").hidden = v !== "dash";
   $("tbl").hidden = v !== "table";
-  $("v-dash").classList.toggle("on", v === "dash");
-  $("v-table").classList.toggle("on", v === "table");
+  $("flow").hidden = v !== "flow";
+  for (const n of ["dash", "table", "flow"]) $("v-" + n).classList.toggle("on", v === n);
+  if (save) store.set("ccwatch.view", v);
+  if (v === "flow" && lastData) renderFlow(lastData);
 }
 
 function syncTools() {
@@ -611,8 +798,10 @@ $("log-reverse").addEventListener("change", (e) => {
   if (lastData) renderLog(lastData, true);
 });
 
-$("v-dash").addEventListener("click", () => setView("dash"));
-$("v-table").addEventListener("click", () => setView("table"));
+$("v-dash").addEventListener("click", () => setView("dash", true));
+$("v-table").addEventListener("click", () => setView("table", true));
+$("v-flow").addEventListener("click", () => setView("flow", true));
+{ const v = store.get("ccwatch.view"); if (v === "table" || v === "flow") setView(v); }
 $("follow").addEventListener("change", (e) => {
   follow = e.target.checked;
   firstLog = true;

@@ -354,9 +354,11 @@ tests 0/0 · tool failures 0 · t table · tab next · q quit
 
 **Web view**
 
-Open <http://127.0.0.1:4319/>. Sessions are listed as a tree in the left sidebar: coordinators with their Orca Run and worker sessions, `claude -p` sessions nested under the session that started them, standalone sessions, and an "ended" group. Click a node to pin that session (`?session=<id>` in the URL); "follow latest" at the top of the sidebar jumps to the newest one. Hide or show the sidebar with the "sessions" button or the `[` key, and drag its right edge to resize it (double-click resets); below 900 px it opens as a drawer. Switch between the dashboard and the table with the buttons at the top. It updates live (server-sent events).
+Open <http://127.0.0.1:4319/>. Sessions are listed as a tree in the left sidebar: coordinators with their Orca Run and worker sessions, `claude -p` sessions nested under the session that started them, standalone sessions, and an "ended" group. Click a node to pin that session (`?session=<id>` in the URL); "follow latest" at the top of the sidebar jumps to the newest one. Hide or show the sidebar with the "sessions" button or the `[` key, and drag its right edge to resize it (double-click resets); below 900 px it opens as a drawer. Switch between the dashboard, the table and the flow view with the buttons at the top; the choice is remembered in the browser. It updates live (server-sent events).
 
 The main session panel shows what the session is doing now: a `now:` line when a tool is running, or `last:` with the most recent tool when idle. Each tool row in the session log shows which tool was called; click the row to expand it and see the full parameters and, for Bash commands, a preview of stdout/stderr (head + tail).
+
+The flow view draws one session as a picture: the models in use and their roles, reviewer calls (`code-reviewer`, `kongming`, `advisor`) beside the main node, a card per subagent or Orca task fanning out from it, the return bar (tokens read vs returned, tests, tool failures), a `same error ×N` badge for a tool call that keeps failing the same way, and the last key events.
 
 | Overview | Orca Run | Table | Mobile Drawer |
 |---|---|---|---|
