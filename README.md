@@ -2,7 +2,15 @@
 
 A read-only live view of what Claude Code is doing: which subagents are running, how many tokens each one used, how large the main context is, whether tests pass, and (optionally) which Orca workers belong to a session. It runs as a small local service and shows the result as a terminal UI, a web page, and one extra line in your Claude Code status line. It never talks to Claude Code's API and never changes a session; it only listens.
 
+The web page has three views of the same session:
+
+- **dashboard**: the main session (what it is doing now, context used), one lane per subagent type, the token flow back to the main agent, and the session log.
+- **flow**: the session as a picture of who does what: the models in use and their roles, the main node, a card per subagent or Orca task fanning out from it, reviewer calls beside it, and what came back (tokens, tests, repeated failures).
+- **table**: one row per subagent with model, state, tokens and summary.
+
 ![ccwatch web dashboard](docs/screenshots/overview.png)
+
+![ccwatch flow view: the main session fanning out to three running subagents](docs/screenshots/flow.png)
 
 ## How it works
 
@@ -360,9 +368,9 @@ The main session panel shows what the session is doing now: a `now:` line when a
 
 The flow view draws one session as a picture: the models in use and their roles, reviewer calls (`code-reviewer`, `kongming`, `advisor`) beside the main node, a card per subagent or Orca task fanning out from it, the return bar (tokens read vs returned, tests, tool failures), a `same error ×N` badge for a tool call that keeps failing the same way, and the last key events.
 
-| Overview | Orca Run | Table | Mobile Drawer |
-|---|---|---|---|
-| ![overview](docs/screenshots/overview.png) | ![orca run](docs/screenshots/orca-run.png) | ![table](docs/screenshots/table.png) | ![mobile drawer](docs/screenshots/mobile-drawer.png) |
+| Overview | Flow | Orca Run | Table | Mobile Drawer |
+|---|---|---|---|---|
+| ![overview](docs/screenshots/overview.png) | ![flow](docs/screenshots/flow.png) | ![orca run](docs/screenshots/orca-run.png) | ![table](docs/screenshots/table.png) | ![mobile drawer](docs/screenshots/mobile-drawer.png) |
 
 | Session log | Sidebar hidden | Profile tag |
 |---|---|---|
